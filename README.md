@@ -8,6 +8,7 @@
 CLI tool to manage your torrent client queues. Primary focus is on removing torrents that meet specific criteria.
 
 ## Example Configuration
+Take the time to read this, it has comments explaining some behaviours of tqm that you should know, and examples on how to do a lot of things.
 ```yaml
 clients:
   deluge:
@@ -48,23 +49,21 @@ filters:
       - Label startsWith "permaseed-" && !IsUnregistered()
       # Filter based on qbittorrent tags (only qbit at the moment)
       - '"permaseed" in Tags && !IsUnregistered()'
+      # Arrs - ignore stuff that are not imported yet
+      - Label in ["sonarr", "radarr", "lidarr"]
+      # I do this and name my categories "arr-sonarr", "arr-radarr" and "arr-lidarr"
+      # with a "-import" for the import ones:
+      # Label startsWith "arr-" and not (Label endsWith "-imported")
+
     remove:
       # general
       - IsUnregistered()
       # imported
       - Label in ["sonarr-imported", "radarr-imported", "lidarr-imported"] && (Ratio > 4.0 || SeedingDays >= 15.0)
-      # ipt
-      - Label in ["autoremove-ipt"] && (Ratio > 3.0 || SeedingDays >= 15.0)
-      # hdt
-      - Label in ["autoremove-hdt"] && (Ratio > 3.0 || SeedingDays >= 15.0)
-      # bhd
-      - Label in ["autoremove-bhd"] && (Ratio > 3.0 || SeedingDays >= 15.0)
-      # ptp
-      - Label in ["autoremove-ptp"] && (Ratio > 3.0 || SeedingDays >= 15.0)
       # btn
       - Label in ["autoremove-btn"] && (Ratio > 3.0 || SeedingDays >= 15.0)
-      # hdb
-      - Label in ["autoremove-hdb"] && (Ratio > 3.0 || SeedingDays >= 15.0)
+      # fl
+      - Label in ["autoremove-fl"] && (Ratio > 3.0 || SeedingDays >= 15.0)
       # Qbit tag utilities
       - HasAllTags("480p", "bad-encode") # match if all tags are present
       - HasAnyTag("remove-me", "gross") # match if at least 1 tag is present
@@ -84,6 +83,12 @@ filters:
           - TrackerName == "landof.tv"
           - not (Name contains "1080p")
           - len(Files) >= 3
+
+      # filelist autoremoves
+      - name: autoremove-fl
+        update:
+          - TrackerName in ["firo.org", "filelist.io"] # must be just the base domains
+
     # Change qbit tags based on filters
     tag:
       - name: low-seed
@@ -188,6 +193,7 @@ filters:
 ```
 can turn into this:
 ```yaml
+# this must be directly at the top, not under the client or filter sections
 bypassIgnoreIfUnregistered: true
 
 filters:
