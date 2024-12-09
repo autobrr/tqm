@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/l3uddz/tqm/config"
+	"github.com/autobrr/tqm/config"
 )
 
 type Interface interface {

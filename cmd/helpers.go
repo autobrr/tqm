@@ -4,13 +4,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/autobrr/tqm/client"
+	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/hardlinkfilemap"
+	"github.com/autobrr/tqm/torrentfilemap"
+
 	"github.com/dustin/go-humanize"
 	"github.com/sirupsen/logrus"
-
-	"github.com/l3uddz/tqm/client"
-	"github.com/l3uddz/tqm/config"
-	"github.com/l3uddz/tqm/hardlinkfilemap"
-	"github.com/l3uddz/tqm/torrentfilemap"
 )
 
 func removeSlice(slice []string, remove []string) []string {

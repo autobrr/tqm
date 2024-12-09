@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/l3uddz/tqm/expression"
+	"github.com/autobrr/tqm/expression"
 )
 
 func NewClient(clientType string, clientName string, exp *expression.Expressions) (Interface, error) {

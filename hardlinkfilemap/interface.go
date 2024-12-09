@@ -1,6 +1,6 @@
 package hardlinkfilemap
 
-import "github.com/l3uddz/tqm/config"
+import "github.com/autobrr/tqm/config"
 
 type HardlinkFileMapI interface {
 	AddByTorrent(torrent config.Torrent)

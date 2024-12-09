@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/l3uddz/tqm/cmd"
+	"github.com/autobrr/tqm/cmd"
 )
 
 func main() {

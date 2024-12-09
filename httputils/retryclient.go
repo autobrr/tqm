@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/autobrr/tqm/runtime"
+
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
-
-	"github.com/l3uddz/tqm/runtime"
 )
 
 func NewRetryableHttpClient(timeout time.Duration, rl ratelimit.Limiter, log *logrus.Entry) *http.Client {

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/l3uddz/tqm/logger"
+	"github.com/autobrr/tqm/logger"
 )
 
 /* Structs */

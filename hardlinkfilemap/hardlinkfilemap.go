@@ -4,8 +4,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/l3uddz/tqm/config"
-	"github.com/l3uddz/tqm/logger"
+	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/logger"
+
 	"github.com/scylladb/go-set/strset"
 )
 

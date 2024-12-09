@@ -3,12 +3,13 @@ package config
 import (
 	"fmt"
 
+	"github.com/autobrr/tqm/logger"
+	"github.com/autobrr/tqm/stringutils"
+	"github.com/autobrr/tqm/tracker"
+
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
-	"github.com/l3uddz/tqm/logger"
-	"github.com/l3uddz/tqm/stringutils"
-	"github.com/l3uddz/tqm/tracker"
 )
 
 type Configuration struct {

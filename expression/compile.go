@@ -3,9 +3,9 @@ package expression
 import (
 	"fmt"
 
-	"github.com/antonmedv/expr"
+	"github.com/autobrr/tqm/config"
 
-	"github.com/l3uddz/tqm/config"
+	"github.com/antonmedv/expr"
 )
 
 func Compile(filter *config.FilterConfiguration) (*Expressions, error) {

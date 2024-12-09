@@ -8,15 +8,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/expression"
+	"github.com/autobrr/tqm/logger"
+	"github.com/autobrr/tqm/sliceutils"
+	"github.com/autobrr/tqm/stringutils"
+
 	"github.com/dustin/go-humanize"
 	qbittorrent "github.com/l3uddz/go-qbt"
 	"github.com/sirupsen/logrus"
-
-	"github.com/l3uddz/tqm/config"
-	"github.com/l3uddz/tqm/expression"
-	"github.com/l3uddz/tqm/logger"
-	"github.com/l3uddz/tqm/sliceutils"
-	"github.com/l3uddz/tqm/stringutils"
 )
 
 /* Struct */

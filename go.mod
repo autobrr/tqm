@@ -1,4 +1,4 @@
-module github.com/l3uddz/tqm
+module github.com/autobrr/tqm
 
 go 1.19
 

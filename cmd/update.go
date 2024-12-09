@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"bufio"
+	"os"
+
+	"github.com/autobrr/tqm/runtime"
+
 	"github.com/blang/semver"
-	"github.com/l3uddz/tqm/runtime"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 var updateCmd = &cobra.Command{

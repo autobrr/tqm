@@ -3,10 +3,10 @@ package expression
 import (
 	"fmt"
 
+	"github.com/autobrr/tqm/config"
+
 	"github.com/antonmedv/expr"
 	"github.com/antonmedv/expr/vm"
-
-	"github.com/l3uddz/tqm/config"
 )
 
 func CheckTorrentSingleMatch(t *config.Torrent, exp []*vm.Program) (bool, error) {

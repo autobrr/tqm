@@ -4,8 +4,8 @@ import (
 	"math"
 	"strings"
 
-	"github.com/l3uddz/tqm/sliceutils"
-	"github.com/l3uddz/tqm/tracker"
+	"github.com/autobrr/tqm/sliceutils"
+	"github.com/autobrr/tqm/tracker"
 )
 
 var (

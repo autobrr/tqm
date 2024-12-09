@@ -5,12 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/l3uddz/tqm/runtime"
-	"github.com/l3uddz/tqm/stringutils"
-	"github.com/l3uddz/tqm/tracker"
+	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/logger"
+	"github.com/autobrr/tqm/runtime"
+	"github.com/autobrr/tqm/stringutils"
+	"github.com/autobrr/tqm/tracker"
 
-	"github.com/l3uddz/tqm/config"
-	"github.com/l3uddz/tqm/logger"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

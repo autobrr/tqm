@@ -5,15 +5,15 @@ import (
 	"os"
 	"strings"
 
+	"github.com/autobrr/tqm/client"
+	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/logger"
+	paths "github.com/autobrr/tqm/pathutils"
+	"github.com/autobrr/tqm/torrentfilemap"
+	"github.com/autobrr/tqm/tracker"
+
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
-
-	"github.com/l3uddz/tqm/client"
-	"github.com/l3uddz/tqm/config"
-	"github.com/l3uddz/tqm/logger"
-	paths "github.com/l3uddz/tqm/pathutils"
-	"github.com/l3uddz/tqm/torrentfilemap"
-	"github.com/l3uddz/tqm/tracker"
 )
 
 var orphanCmd = &cobra.Command{

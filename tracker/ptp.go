@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/autobrr/tqm/httputils"
+	"github.com/autobrr/tqm/logger"
+
 	"github.com/lucperkins/rek"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
-
-	"github.com/l3uddz/tqm/httputils"
-	"github.com/l3uddz/tqm/logger"
 )
 
 type PTPConfig struct {

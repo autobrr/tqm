@@ -4,17 +4,17 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/autobrr/tqm/client"
+	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/expression"
+	"github.com/autobrr/tqm/hardlinkfilemap"
+	"github.com/autobrr/tqm/logger"
+	"github.com/autobrr/tqm/sliceutils"
+	"github.com/autobrr/tqm/torrentfilemap"
+	"github.com/autobrr/tqm/tracker"
+
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
-
-	"github.com/l3uddz/tqm/client"
-	"github.com/l3uddz/tqm/config"
-	"github.com/l3uddz/tqm/expression"
-	"github.com/l3uddz/tqm/hardlinkfilemap"
-	"github.com/l3uddz/tqm/logger"
-	"github.com/l3uddz/tqm/sliceutils"
-	"github.com/l3uddz/tqm/torrentfilemap"
-	"github.com/l3uddz/tqm/tracker"
 )
 
 var relabelCmd = &cobra.Command{
@@ -142,7 +142,7 @@ var relabelCmd = &cobra.Command{
 			// add HardlinkedOutsideClient field to torrents
 			for h, t := range torrents {
 				t.HardlinkedOutsideClient = hfm.HardlinkedOutsideClient(t)
-                                torrents[h] = t
+				torrents[h] = t
 			}
 		} else {
 			log.Warnf("Not mapping hardlinks for client %q", clientName)
