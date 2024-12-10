@@ -62,5 +62,3 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/l3uddz/go-qbt v1.0.1 => github.com/SweetMNM/go-qbt v1.0.2-0.20220928185535-3f64c8c30e9a
