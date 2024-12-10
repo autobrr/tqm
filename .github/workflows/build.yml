@@ -3,88 +3,98 @@ name: Build
 on:
   push:
     branches:
-      - '*'
+      - "master"
     tags:
       - 'v*'
+    paths-ignore:
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/images/**'
+      - 'config.toml'
+      - 'docker-compose.yml'
+      - 'Makefile'
+      - '**.md'
+  pull_request:
+    paths-ignore:
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/images/**'
+      - 'config.toml'
+      - 'docker-compose.yml'
+      - 'Makefile'
+      - '**.md'
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_IMAGE: ghcr.io/${{ github.repository }}
+  GO_VERSION: '1.23'
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
-  build:
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
-      # dependencies
-      - name: goreleaser
-        uses: goreleaser/goreleaser-action@v2
-        with:
-          install-only: true
-          version: 1.7.0
-
-      - name: goreleaser version
-        run: goreleaser -v
-
-      # checkout
-      - name: checkout
-        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # setup go
-      - name: go
-        uses: actions/setup-go@v1
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.19
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
 
-      - name: go info
-        run: |
-          go version
-          go env
+      - name: Test
+        run: go run gotest.tools/gotestsum@latest --junitfile unit-tests.xml --format pkgname -- ./...
 
-      # cache
-      - name: cache
-        uses: actions/cache@v1
+      - name: Test Summary
+        uses: test-summary/action@v2
         with:
-          path: vendor
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          paths: "unit-tests.xml"
+        if: always()
 
-      # vendor
-      - name: vendor
-        run: |
-          make vendor
+  goreleaser:
+    name: Build and publish Go binaries
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # git status
-      - name: git status
-        run: git status
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
 
-      # build
-      - name: build
-        if: startsWith(github.ref, 'refs/tags/') == false
-        run: |
-          make snapshot
+      - name: Run GoReleaser build
+        uses: goreleaser/goreleaser-action@v5
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean --skip=validate --skip=publish --parallelism 5 --snapshot
 
-      # publish
-      - name: publish
-        if: startsWith(github.ref, 'refs/tags/') == true
+      - name: Run GoReleaser build and publish tags
+        uses: goreleaser/goreleaser-action@v5
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          make publish
 
-      # artifacts
-      - name: artifact_linux
-        uses: actions/upload-artifact@v2-preview
+      - name: Upload assets
+        uses: actions/upload-artifact@v4
         with:
-          name: build_linux
-          path: dist/*linux*
-
-      - name: artifact_darwin
-        uses: actions/upload-artifact@v2-preview
-        with:
-          name: build_darwin
-          path: dist/*darwin*
-
-      - name: artifact_windows
-        uses: actions/upload-artifact@v2-preview
-        with:
-          name: build_windows
-          path: dist/*windows*
+          name: tqm
+          path: |
+            dist/*.tar.gz
+            dist/*.json
+            dist/*.yaml
