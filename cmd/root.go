@@ -5,11 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/autobrr/tqm/config"
-	"github.com/autobrr/tqm/logger"
-	"github.com/autobrr/tqm/runtime"
-	"github.com/autobrr/tqm/stringutils"
-	"github.com/autobrr/tqm/tracker"
+	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/runtime"
+	"github.com/autobrr/tqm/pkg/stringutils"
+	"github.com/autobrr/tqm/pkg/tracker"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"

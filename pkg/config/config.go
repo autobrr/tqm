@@ -3,9 +3,9 @@ package config
 import (
 	"fmt"
 
-	"github.com/autobrr/tqm/logger"
-	"github.com/autobrr/tqm/stringutils"
-	"github.com/autobrr/tqm/tracker"
+	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/stringutils"
+	"github.com/autobrr/tqm/pkg/tracker"
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/yaml"
@@ -15,6 +15,7 @@ import (
 type Configuration struct {
 	Clients                    map[string]map[string]interface{}
 	Filters                    map[string]FilterConfiguration
+	Jobs                       Jobs
 	Trackers                   tracker.Config
 	BypassIgnoreIfUnregistered bool
 }

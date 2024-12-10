@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/autobrr/tqm/config"
-	"github.com/autobrr/tqm/expression"
-	"github.com/autobrr/tqm/logger"
-	"github.com/autobrr/tqm/sliceutils"
-	"github.com/autobrr/tqm/stringutils"
-
 	qbit "github.com/autobrr/go-qbittorrent"
+	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/expression"
+	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/sliceutils"
+	"github.com/autobrr/tqm/pkg/stringutils"
+
 	"github.com/dustin/go-humanize"
 	"github.com/sirupsen/logrus"
 )

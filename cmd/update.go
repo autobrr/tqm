@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"os"
 
-	"github.com/autobrr/tqm/runtime"
+	"github.com/autobrr/tqm/pkg/runtime"
 
 	"github.com/blang/semver"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"

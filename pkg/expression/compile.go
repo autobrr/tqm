@@ -3,7 +3,7 @@ package expression
 import (
 	"fmt"
 
-	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/pkg/config"
 
 	"github.com/expr-lang/expr"
 )

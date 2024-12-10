@@ -4,10 +4,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/autobrr/tqm/client"
-	"github.com/autobrr/tqm/config"
-	"github.com/autobrr/tqm/hardlinkfilemap"
-	"github.com/autobrr/tqm/torrentfilemap"
+	"github.com/autobrr/tqm/pkg/client"
+	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/hardlinkfilemap"
+	"github.com/autobrr/tqm/pkg/torrentfilemap"
 
 	"github.com/dustin/go-humanize"
 	"github.com/sirupsen/logrus"

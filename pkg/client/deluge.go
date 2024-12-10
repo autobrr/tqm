@@ -5,9 +5,9 @@ import (
 	"path"
 	"time"
 
-	"github.com/autobrr/tqm/config"
-	"github.com/autobrr/tqm/expression"
-	"github.com/autobrr/tqm/logger"
+	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/expression"
+	"github.com/autobrr/tqm/pkg/logger"
 
 	"github.com/dustin/go-humanize"
 	delugeclient "github.com/gdm85/go-libdeluge"

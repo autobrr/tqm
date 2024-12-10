@@ -1,7 +1,7 @@
 package torrentfilemap
 
 import (
-	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/pkg/config"
 )
 
 type TorrentFileMap struct {

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/autobrr/tqm/httputils"
-	"github.com/autobrr/tqm/logger"
+	"github.com/autobrr/tqm/pkg/httputils"
+	"github.com/autobrr/tqm/pkg/logger"
 
 	"github.com/lucperkins/rek"
 	"github.com/sirupsen/logrus"

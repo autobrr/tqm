@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/autobrr/tqm/runtime"
+	"github.com/autobrr/tqm/pkg/runtime"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/sirupsen/logrus"
