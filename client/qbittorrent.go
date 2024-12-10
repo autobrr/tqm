@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -163,10 +164,10 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 			return nil, fmt.Errorf("get torrent trackers: %v: %w", t.Hash, err)
 		}
 
-		//tf, err := c.client.GetTorrentContents(t.Hash)
-		//if err != nil {
-		//	return nil, fmt.Errorf("get torrent files: %v: %w", t.Hash, err)
-		//}
+		tf, err := c.client.GetFilesInformation(t.Hash)
+		if err != nil {
+			return nil, fmt.Errorf("get torrent files: %v: %w", t.Hash, err)
+		}
 
 		// parse tracker details
 		trackerName := ""
@@ -192,9 +193,9 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 
 		// torrent files
 		var files []string
-		//for _, f := range tf {
-		//	files = append(files, filepath.Join(td.SavePath, f.Name))
-		//}
+		for _, f := range *tf {
+			files = append(files, filepath.Join(td.SavePath, f.Name))
+		}
 
 		// create torrent
 		var tags []string
@@ -207,8 +208,8 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 			Hash:            t.Hash,
 			Name:            t.Name,
 			Path:            td.SavePath,
-			TotalBytes:      int64(t.Size),
-			DownloadedBytes: int64(td.TotalDownloaded),
+			TotalBytes:      t.Size,
+			DownloadedBytes: td.TotalDownloaded,
 			State:           string(t.State),
 			Files:           files,
 			Tags:            tags,
@@ -294,28 +295,28 @@ func (c *QBittorrent) SetTorrentLabel(hash string, label string, hardlink bool) 
 
 		if filepath.Clean(td.SavePath) != filepath.Clean(lp) {
 			// get torrent files
-			//tf, err := c.client.GetTorrentContents(hash)
-			//if err != nil {
-			//	return fmt.Errorf("get torrent files: %w", err)
-			//}
-			//
-			//for _, f := range tf {
-			//	source := filepath.Join(td.SavePath, f.Name)
-			//	target := filepath.Join(lp, f.Name)
-			//	if _, err := os.Stat(source); err != nil {
-			//		return fmt.Errorf("stat file '%v': %w", target, err)
-			//	}
-			//
-			//	// create target directory
-			//	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-			//		return fmt.Errorf("create target directory: %w", err)
-			//	}
-			//
-			//	// link
-			//	if err := os.Link(source, target); err != nil {
-			//		return fmt.Errorf("create hardlink for '%v': %w", f.Name, err)
-			//	}
-			//}
+			tf, err := c.client.GetFilesInformation(hash)
+			if err != nil {
+				return fmt.Errorf("get torrent files: %w", err)
+			}
+
+			for _, f := range *tf {
+				source := filepath.Join(td.SavePath, f.Name)
+				target := filepath.Join(lp, f.Name)
+				if _, err := os.Stat(source); err != nil {
+					return fmt.Errorf("stat file '%v': %w", target, err)
+				}
+
+				// create target directory
+				if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+					return fmt.Errorf("create target directory: %w", err)
+				}
+
+				// link
+				if err := os.Link(source, target); err != nil {
+					return fmt.Errorf("create hardlink for '%v': %w", f.Name, err)
+				}
+			}
 		}
 
 		// if just setting category and letting autotmm move
