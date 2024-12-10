@@ -73,19 +73,21 @@ jobs:
           cache: true
 
       - name: Run GoReleaser build
-        uses: goreleaser/goreleaser-action@v5
-        if: ${{ github.event_name == 'pull_request' }}
+        if: github.event_name == 'pull_request'
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
-          args: release --clean --skip=validate --skip=publish --parallelism 5 --snapshot
+          version: "~> v2"
+          args: release --clean --skip=validate,publish --parallelism 5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run GoReleaser build and publish tags
-        uses: goreleaser/goreleaser-action@v5
         if: startsWith(github.ref, 'refs/tags/')
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
+          version: "~> v2"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
