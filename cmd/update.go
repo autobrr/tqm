@@ -28,7 +28,7 @@ var updateCmd = &cobra.Command{
 
 		// detect latest version
 		log.Info("Checking for the latest version...")
-		latest, found, err := selfupdate.DetectLatest("l3uddz/tqm")
+		latest, found, err := selfupdate.DetectLatest("autobrr/tqm")
 		if err != nil {
 			log.WithError(err).Fatal("Failed determining latest available version")
 		}

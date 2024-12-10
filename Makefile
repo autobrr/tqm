@@ -42,7 +42,7 @@ ${BUILD_PATH}/${CMD}: ${GO_FILES} go.sum
 	CGO_ENABLED=0 go build \
 		-mod vendor \
 		-trimpath \
-		-ldflags "-s -w -X github.com/l3uddz/tqm/runtime.Version=${VERSION} -X github.com/l3uddz/tqm/runtime.GitCommit=${GIT_COMMIT} -X github.com/l3uddz/tqm/runtime.Timestamp=${TIMESTAMP}" \
+		-ldflags "-s -w -X github.com/autobrr/tqm/runtime.Version=${VERSION} -X github.com/autobrr/tqm/runtime.GitCommit=${GIT_COMMIT} -X github.com/autobrr/tqm/runtime.Timestamp=${TIMESTAMP}" \
 		-o ${BUILD_PATH}/${CMD} \
 		.
 
