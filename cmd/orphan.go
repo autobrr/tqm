@@ -16,17 +16,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var orphanCmd = &cobra.Command{
-	Use:   "orphan [CLIENT]",
-	Short: "Check download location for orphan files/folders not in torrent client",
-	Long:  `This command can be used to find files and folders in the download_location that are no longer in the torrent client.`,
+func OrphanCommand() *cobra.Command {
+	var command = &cobra.Command{
+		Use:   "orphan [CLIENT]",
+		Short: "Check download location for orphan files/folders not in torrent client",
+		Long:  `This command can be used to find files and folders in the download_location that are no longer in the torrent client.`,
+	}
 
-	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	var (
+		flagFilterName string
+	)
+
+	command.Flags().StringVar(&flagFilterName, "filter", "", "Filter to use instead of client")
+
+	command.Run = func(cmd *cobra.Command, args []string) {
 		// init core
-		if !initialized {
+		if !Initialized {
 			initCore(true)
-			initialized = true
+			Initialized = true
 		}
 
 		// set log
@@ -90,7 +97,7 @@ var orphanCmd = &cobra.Command{
 			log.Infof("Retrieved %d torrents", len(torrents))
 		}
 
-		if flagLogLevel > 1 {
+		if FlagLogLevel > 1 {
 			if b, err := json.Marshal(torrents); err != nil {
 				log.WithError(err).Error("Failed marshalling torrents")
 			} else {
@@ -143,7 +150,7 @@ var orphanCmd = &cobra.Command{
 				removed := true
 
 				log.Infof("Removing orphan: %q", localPath)
-				if flagDryRun {
+				if FlagDryRun {
 					log.Warn("Dry-run enabled, skipping remove...")
 				} else {
 					// remove file
@@ -176,7 +183,7 @@ var orphanCmd = &cobra.Command{
 				removed := true
 
 				log.Infof("Removing orphan: %q", localPath)
-				if flagDryRun {
+				if FlagDryRun {
 					log.Warn("Dry-run enabled, skipping remove...")
 				} else {
 					// remove folder
@@ -199,9 +206,7 @@ var orphanCmd = &cobra.Command{
 		log.WithField("reclaimed_space", humanize.IBytes(removedLocalFilesSize)).
 			Infof("Removed orphans: %d files, %d folders and %d failures",
 				removedLocalFiles, removedLocalFolders, removeFailures)
-	},
-}
+	}
 
-func init() {
-	rootCmd.AddCommand(orphanCmd)
+	return command
 }

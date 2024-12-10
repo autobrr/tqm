@@ -17,17 +17,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cleanCmd = &cobra.Command{
-	Use:   "clean [CLIENT]",
-	Short: "Check torrent client for torrents to remove",
-	Long:  `This command can be used to check a torrent clients queue for torrents to remove based on its configured filters.`,
+func CleanCommand() *cobra.Command {
+	var command = &cobra.Command{
+		Use:   "clean [CLIENT]",
+		Short: "Check torrent client for torrents to remove",
+		Long:  `This command can be used to check a torrent clients queue for torrents to remove based on its configured filters.`,
 
-	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+		Args: cobra.ExactArgs(1),
+	}
+
+	var (
+		flagFilterName string
+	)
+
+	command.Flags().StringVar(&flagFilterName, "filter", "", "Filter to use instead of client")
+
+	command.Run = func(cmd *cobra.Command, args []string) {
 		// init core
-		if !initialized {
+		if !Initialized {
 			initCore(true)
-			initialized = true
+			Initialized = true
 		}
 
 		// set log
@@ -107,7 +116,7 @@ var cleanCmd = &cobra.Command{
 			log.Infof("Retrieved %d torrents", len(torrents))
 		}
 
-		if flagLogLevel > 1 {
+		if FlagLogLevel > 1 {
 			if b, err := json.Marshal(torrents); err != nil {
 				log.WithError(err).Error("Failed marshalling torrents")
 			} else {
@@ -150,11 +159,7 @@ var cleanCmd = &cobra.Command{
 		if err := removeEligibleTorrents(log, c, torrents, tfm, hfm); err != nil {
 			log.WithError(err).Fatal("Failed removing eligible torrents...")
 		}
-	},
-}
+	}
 
-func init() {
-	rootCmd.AddCommand(cleanCmd)
-
-	cleanCmd.Flags().StringVar(&flagFilterName, "filter", "", "Filter to use instead of client")
+	return command
 }

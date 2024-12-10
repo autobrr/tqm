@@ -16,17 +16,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var retagCmd = &cobra.Command{
-	Use:   "retag [CLIENT]",
-	Short: "Check client (only qbit) for torrents to retag",
-	Long:  `This command can be used to check a torrent clients queue for torrents to retag based on its configured filters.`,
+func RetagCommand() *cobra.Command {
+	var command = &cobra.Command{
+		Use:   "retag [CLIENT]",
+		Short: "Check client (only qbit) for torrents to retag",
+		Long:  `This command can be used to check a torrent clients queue for torrents to retag based on its configured filters.`,
 
-	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+		Args: cobra.ExactArgs(1),
+	}
+
+	var (
+		flagFilterName string
+	)
+
+	command.Flags().StringVar(&flagFilterName, "filter", "", "Filter to use instead of client")
+
+	command.Run = func(cmd *cobra.Command, args []string) {
 		// init core
-		if !initialized {
+		if !Initialized {
 			initCore(true)
-			initialized = true
+			Initialized = true
 		}
 
 		// set log
@@ -116,7 +125,7 @@ var retagCmd = &cobra.Command{
 			log.Infof("Retrieved %d torrents", len(torrents))
 		}
 
-		if flagLogLevel > 1 {
+		if FlagLogLevel > 1 {
 			if b, err := json.Marshal(torrents); err != nil {
 				log.WithError(err).Error("Failed marshalling torrents")
 			} else {
@@ -164,11 +173,7 @@ var retagCmd = &cobra.Command{
 		if err := retagEligibleTorrents(log, ct, torrents); err != nil {
 			log.WithError(err).Fatal("Failed retagging eligible torrents...")
 		}
-	},
-}
+	}
 
-func init() {
-	rootCmd.AddCommand(retagCmd)
-
-	retagCmd.Flags().StringVar(&flagFilterName, "filter", "", "Filter to use instead of client")
+	return command
 }

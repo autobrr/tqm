@@ -52,7 +52,7 @@ func retagEligibleTorrents(log *logrus.Entry, c client.TagInterface, torrents ma
 		log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
 			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
 
-		if !flagDryRun {
+		if !FlagDryRun {
 			error := 0
 			if err := c.AddTags(t.Hash, retagInfo.Add); err != nil {
 				log.WithError(err).Fatalf("Failed adding tags to torrent: %+v", t)
@@ -113,7 +113,7 @@ func relabelEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map
 
 		hardlink := false
 		if !tfm.IsUnique(t) {
-			if !flagExperimentalRelabelForCrossSeeds {
+			if !FlagExperimentalRelabelForCrossSeeds {
 				// torrent file is not unique, files are contained within another torrent
 				// so we cannot safely change the label in-case of auto move
 				nonUniqueTorrents++
@@ -134,7 +134,7 @@ func relabelEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map
 		log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
 			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
 
-		if !flagDryRun {
+		if !FlagDryRun {
 			if err := c.SetTorrentLabel(t.Hash, label, hardlink); err != nil {
 				log.WithError(err).Fatalf("Failed relabeling torrent: %+v", t)
 				errorRelabelTorrents++
@@ -184,7 +184,7 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 		log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
 			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
 
-		if !flagDryRun {
+		if !FlagDryRun {
 			// do remove
 			removed, err := c.RemoveTorrent(t.Hash, true)
 			if err != nil {

@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/autobrr/tqm/pkg/config"
 	"github.com/autobrr/tqm/pkg/logger"
@@ -13,74 +11,75 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 var (
 	// Global flags
-	flagLogLevel     = 0
-	flagConfigFile   = "config.yaml"
-	flagConfigFolder = config.GetDefaultConfigDirectory("tqm", flagConfigFile)
-	flagLogFile      = "activity.log"
 
-	flagFilterName                       string
-	flagDryRun                           bool
-	flagExperimentalRelabelForCrossSeeds bool
+	FlagLogLevel     = 0
+	FlagConfigFile   = "config.yaml"
+	FlagConfigFolder = config.GetDefaultConfigDirectory("tqm", FlagConfigFile)
+	FlagLogFile      = "activity.log"
+
+	//flagFilterName                       string
+
+	FlagDryRun                           bool
+	FlagExperimentalRelabelForCrossSeeds bool
 
 	// Global vars
-	log         *logrus.Entry
-	initialized bool
+	Log         *logrus.Entry
+	Initialized bool
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "tqm",
-	Short: "A CLI torrent queue manager",
-	Long: `A CLI application that can be used to manage your torrent clients.
-`,
-}
+//var rootCmd = &cobra.Command{
+//	Use:   "tqm",
+//	Short: "A CLI torrent queue manager",
+//	Long: `A CLI application that can be used to manage your torrent clients.
+//`,
+//}
+//
+//func Execute() {
+//	if err := rootCmd.Execute(); err != nil {
+//		fmt.Println(err)
+//		os.Exit(1)
+//	}
+//}
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
-
-func init() {
-	// Parse persistent flags
-	rootCmd.PersistentFlags().StringVar(&flagConfigFolder, "config-dir", flagConfigFolder, "Config folder")
-	rootCmd.PersistentFlags().StringVarP(&flagConfigFile, "config", "c", flagConfigFile, "Config file")
-	rootCmd.PersistentFlags().StringVarP(&flagLogFile, "log", "l", flagLogFile, "Log file")
-	rootCmd.PersistentFlags().CountVarP(&flagLogLevel, "verbose", "v", "Verbose level")
-
-	rootCmd.PersistentFlags().BoolVar(&flagDryRun, "dry-run", false, "Dry run mode")
-	rootCmd.PersistentFlags().BoolVar(&flagExperimentalRelabelForCrossSeeds, "experimental-relabel", false, "Enable experimental relabeling for cross-seeded torrents, using hardlinks (only qbit for now")
-}
+//func init() {
+//	// Parse persistent flags
+//	rootCmd.PersistentFlags().StringVar(&FlagConfigFolder, "config-dir", FlagConfigFolder, "Config folder")
+//	rootCmd.PersistentFlags().StringVarP(&FlagConfigFile, "config", "c", FlagConfigFile, "Config file")
+//	rootCmd.PersistentFlags().StringVarP(&FlagLogFile, "log", "l", FlagLogFile, "Log file")
+//	rootCmd.PersistentFlags().CountVarP(&FlagLogLevel, "verbose", "v", "Verbose level")
+//
+//	rootCmd.PersistentFlags().BoolVar(&FlagDryRun, "dry-run", false, "Dry run mode")
+//	rootCmd.PersistentFlags().BoolVar(&FlagExperimentalRelabelForCrossSeeds, "experimental-relabel", false, "Enable experimental relabeling for cross-seeded torrents, using hardlinks (only qbit for now")
+//}
 
 func initCore(showAppInfo bool) {
 	// Set core variables
-	if !rootCmd.PersistentFlags().Changed("config") {
-		flagConfigFile = filepath.Join(flagConfigFolder, flagConfigFile)
-	}
-	if !rootCmd.PersistentFlags().Changed("log") {
-		flagLogFile = filepath.Join(flagConfigFolder, flagLogFile)
-	}
+	//if !rootCmd.PersistentFlags().Changed("config") {
+	//	FlagConfigFile = filepath.Join(FlagConfigFolder, FlagConfigFile)
+	//}
+	//if !rootCmd.PersistentFlags().Changed("log") {
+	//	FlagLogFile = filepath.Join(FlagConfigFolder, FlagLogFile)
+	//}
 
 	// Init Logging
-	if err := logger.Init(flagLogLevel, flagLogFile); err != nil {
-		log.WithError(err).Fatal("Failed to initialize logging")
+	if err := logger.Init(FlagLogLevel, FlagLogFile); err != nil {
+		Log.WithError(err).Fatal("Failed to initialize logging")
 	}
 
-	log = logger.GetLogger("app")
+	Log = logger.GetLogger("app")
 
 	// Init Config
-	if err := config.Init(flagConfigFile); err != nil {
-		log.WithError(err).Fatal("Failed to initialize config")
+	if err := config.Init(FlagConfigFile); err != nil {
+		Log.WithError(err).Fatal("Failed to initialize config")
 	}
 
 	// Init Trackers
 	if err := tracker.Init(config.Config.Trackers); err != nil {
-		log.WithError(err).Fatal("Failed to initialize trackers")
+		Log.WithError(err).Fatal("Failed to initialize trackers")
 	}
 
 	// Show App Info
@@ -91,11 +90,11 @@ func initCore(showAppInfo bool) {
 
 func showUsing() {
 	// show app info
-	log.Infof("Using %s = %s (%s@%s)", stringutils.LeftJust("VERSION", " ", 10),
+	Log.Infof("Using %s = %s (%s@%s)", stringutils.LeftJust("VERSION", " ", 10),
 		runtime.Version, runtime.GitCommit, runtime.Timestamp)
 	logger.ShowUsing()
 	config.ShowUsing()
-	log.Info("------------------")
+	Log.Info("------------------")
 }
 
 func validateClientEnabled(clientConfig map[string]interface{}) error {
