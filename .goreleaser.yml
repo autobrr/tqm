@@ -15,9 +15,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X "github.com/l3uddz/tqm/runtime.Version={{ .Version }}"
-      - -X "github.com/l3uddz/tqm/runtime.GitCommit={{ .ShortCommit }}"
-      - -X "github.com/l3uddz/tqm/runtime.Timestamp={{ .Timestamp }}"
+      - -X "github.com/autobrr/tqm/runtime.Version={{ .Version }}"
+      - -X "github.com/autobrr/tqm/runtime.GitCommit={{ .ShortCommit }}"
+      - -X "github.com/autobrr/tqm/runtime.Timestamp={{ .Timestamp }}"
     flags:
       - -trimpath
 
