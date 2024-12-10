@@ -1,6 +1,6 @@
 package expression
 
-import "github.com/antonmedv/expr/vm"
+import "github.com/expr-lang/expr/vm"
 
 type Expressions struct {
 	Ignores []*vm.Program

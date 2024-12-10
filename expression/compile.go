@@ -5,7 +5,7 @@ import (
 
 	"github.com/autobrr/tqm/config"
 
-	"github.com/antonmedv/expr"
+	"github.com/expr-lang/expr"
 )
 
 func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
