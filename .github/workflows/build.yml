@@ -9,7 +9,7 @@ on:
     paths-ignore:
       - '.github/ISSUE_TEMPLATE/**'
       - '.github/images/**'
-      - 'config.toml'
+      - 'config.yaml'
       - 'docker-compose.yml'
       - 'Makefile'
       - '**.md'
@@ -17,7 +17,7 @@ on:
     paths-ignore:
       - '.github/ISSUE_TEMPLATE/**'
       - '.github/images/**'
-      - 'config.toml'
+      - 'config.yaml'
       - 'docker-compose.yml'
       - 'Makefile'
       - '**.md'
