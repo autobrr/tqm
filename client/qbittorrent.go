@@ -13,7 +13,6 @@ import (
 	"github.com/autobrr/tqm/expression"
 	"github.com/autobrr/tqm/logger"
 	"github.com/autobrr/tqm/sliceutils"
-	"github.com/autobrr/tqm/stringutils"
 
 	qbit "github.com/autobrr/go-qbittorrent"
 	"github.com/dustin/go-humanize"
