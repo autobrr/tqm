@@ -13,7 +13,6 @@ import (
 	"github.com/autobrr/tqm/expression"
 	"github.com/autobrr/tqm/logger"
 	"github.com/autobrr/tqm/sliceutils"
-	"github.com/autobrr/tqm/stringutils"
 
 	qbit "github.com/autobrr/go-qbittorrent"
 	"github.com/dustin/go-humanize"
@@ -97,9 +96,10 @@ func (c *QBittorrent) Connect() error {
 	apiVersion, err := c.client.GetWebAPIVersion()
 	if err != nil {
 		return fmt.Errorf("get api version: %w", err)
-	} else if stringutils.Atof64(apiVersion[0:3], 0.0) < 2.2 {
-		return fmt.Errorf("unsupported webapi version: %v", apiVersion)
-	}
+	} 
+	//else if stringutils.Atof64(apiVersion[0:3], 0.0) < 2.2 {
+	//	return fmt.Errorf("unsupported webapi version: %v", apiVersion)
+	//}
 
 	c.log.Debugf("API Version: %v", apiVersion)
 	return nil
