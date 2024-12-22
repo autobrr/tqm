@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/autobrr/tqm/logger"
 	"github.com/autobrr/tqm/stringutils"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/yaml"
+	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 )
 
@@ -40,7 +42,15 @@ func Init(configFilePath string) error {
 
 	// load config
 	if err := K.Load(file.Provider(configFilePath), yaml.Parser()); err != nil {
-		return fmt.Errorf("load: %w", err)
+		return fmt.Errorf("load file: %w", err)
+	}
+
+	// load environment variables
+	if err := K.Load(env.Provider("TQM_", ".", func(s string) string {
+		return strings.Replace(strings.ToLower(
+			strings.TrimPrefix(s, "TQM_")), "_", ".", -1)
+	}), nil); err != nil {
+		return fmt.Errorf("load env: %w", err)
 	}
 
 	// unmarshal config
