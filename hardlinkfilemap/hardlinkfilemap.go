@@ -51,6 +51,10 @@ func (t *HardlinkFileMap) linkInfoByPath(path string) (string, uint64, bool) {
 }
 
 func (t *HardlinkFileMap) AddByTorrent(torrent config.Torrent) {
+	if !torrent.Downloaded {
+		return
+	}
+
 	for _, f := range torrent.Files {
 		f = t.considerPathMapping(f)
 
@@ -72,6 +76,10 @@ func (t *HardlinkFileMap) AddByTorrent(torrent config.Torrent) {
 }
 
 func (t *HardlinkFileMap) RemoveByTorrent(torrent config.Torrent) {
+	if !torrent.Downloaded {
+		return
+	}
+
 	for _, f := range torrent.Files {
 		f = t.considerPathMapping(f)
 
@@ -111,6 +119,10 @@ func (t *HardlinkFileMap) countLinks(f string) (inmap uint64, total uint64, ok b
 }
 
 func (t *HardlinkFileMap) HardlinkedOutsideClient(torrent config.Torrent) bool {
+	if !torrent.Downloaded {
+		return false
+	}
+
 	for _, f := range torrent.Files {
 		inmap, total, ok := t.countLinks(f)
 		if !ok {
@@ -126,6 +138,10 @@ func (t *HardlinkFileMap) HardlinkedOutsideClient(torrent config.Torrent) bool {
 }
 
 func (t *HardlinkFileMap) IsTorrentUnique(torrent config.Torrent) bool {
+	if !torrent.Downloaded {
+		return true
+	}
+
 	for _, f := range torrent.Files {
 		c, _, ok := t.countLinks(f)
 		if !ok {
@@ -141,6 +157,10 @@ func (t *HardlinkFileMap) IsTorrentUnique(torrent config.Torrent) bool {
 }
 
 func (t *HardlinkFileMap) NoInstances(torrent config.Torrent) bool {
+	if !torrent.Downloaded {
+		return true
+	}
+
 	for _, f := range torrent.Files {
 		c, _, ok := t.countLinks(f)
 		if !ok {
