@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/autobrr/tqm/config"
-	"github.com/autobrr/tqm/expression"
-	"github.com/autobrr/tqm/logger"
-	"github.com/autobrr/tqm/sliceutils"
-
 	qbit "github.com/autobrr/go-qbittorrent"
+	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/expression"
+	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/sliceutils"
+
 	"github.com/dustin/go-humanize"
 	"github.com/sirupsen/logrus"
 )
@@ -96,7 +96,7 @@ func (c *QBittorrent) Connect() error {
 	apiVersion, err := c.client.GetWebAPIVersion()
 	if err != nil {
 		return fmt.Errorf("get api version: %w", err)
-	} 
+	}
 	//else if stringutils.Atof64(apiVersion[0:3], 0.0) < 2.2 {
 	//	return fmt.Errorf("unsupported webapi version: %v", apiVersion)
 	//}

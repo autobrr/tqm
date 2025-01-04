@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/autobrr/tqm/logger"
-	"github.com/autobrr/tqm/stringutils"
-	"github.com/autobrr/tqm/tracker"
+	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/stringutils"
+	"github.com/autobrr/tqm/pkg/tracker"
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/yaml"

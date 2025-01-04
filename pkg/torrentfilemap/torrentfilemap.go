@@ -3,7 +3,7 @@ package torrentfilemap
 import (
 	"strings"
 
-	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/pkg/config"
 )
 
 func New(torrents map[string]config.Torrent) *TorrentFileMap {

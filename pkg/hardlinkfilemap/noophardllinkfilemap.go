@@ -1,6 +1,6 @@
 package hardlinkfilemap
 
-import "github.com/autobrr/tqm/config"
+import "github.com/autobrr/tqm/pkg/config"
 
 type noopHardlinkFileMap struct {
 }

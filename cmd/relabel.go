@@ -4,30 +4,39 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/autobrr/tqm/client"
-	"github.com/autobrr/tqm/config"
-	"github.com/autobrr/tqm/expression"
-	"github.com/autobrr/tqm/hardlinkfilemap"
-	"github.com/autobrr/tqm/logger"
-	"github.com/autobrr/tqm/sliceutils"
-	"github.com/autobrr/tqm/torrentfilemap"
-	"github.com/autobrr/tqm/tracker"
+	"github.com/autobrr/tqm/pkg/client"
+	"github.com/autobrr/tqm/pkg/expression"
+	"github.com/autobrr/tqm/pkg/hardlinkfilemap"
+	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/sliceutils"
+	"github.com/autobrr/tqm/pkg/torrentfilemap"
+	"github.com/autobrr/tqm/pkg/tracker"
 
+	"github.com/autobrr/tqm/pkg/config"
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
 )
 
-var relabelCmd = &cobra.Command{
-	Use:   "relabel [CLIENT]",
-	Short: "Check torrent client for torrents to relabel",
-	Long:  `This command can be used to check a torrent clients queue for torrents to relabel based on its configured filters.`,
+func RelabelCommand() *cobra.Command {
+	var command = &cobra.Command{
+		Use:   "relabel [CLIENT]",
+		Short: "Check torrent client for torrents to relabel",
+		Long:  `This command can be used to check a torrent clients queue for torrents to relabel based on its configured filters.`,
 
-	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+		Args: cobra.ExactArgs(1),
+	}
+
+	var (
+		flagFilterName string
+	)
+
+	command.Flags().StringVar(&flagFilterName, "filter", "", "Filter to use instead of client")
+
+	command.Run = func(cmd *cobra.Command, args []string) {
 		// init core
-		if !initialized {
+		if !Initialized {
 			initCore(true)
-			initialized = true
+			Initialized = true
 		}
 
 		// set log
@@ -112,7 +121,7 @@ var relabelCmd = &cobra.Command{
 			log.Infof("Retrieved %d torrents", len(torrents))
 		}
 
-		if flagLogLevel > 1 {
+		if FlagLogLevel > 1 {
 			if b, err := json.Marshal(torrents); err != nil {
 				log.WithError(err).Error("Failed marshalling torrents")
 			} else {
@@ -153,11 +162,7 @@ var relabelCmd = &cobra.Command{
 		if err := relabelEligibleTorrents(log, c, torrents, tfm); err != nil {
 			log.WithError(err).Fatal("Failed relabeling eligible torrents...")
 		}
-	},
-}
+	}
 
-func init() {
-	rootCmd.AddCommand(relabelCmd)
-
-	relabelCmd.Flags().StringVar(&flagFilterName, "filter", "", "Filter to use instead of client")
+	return command
 }
