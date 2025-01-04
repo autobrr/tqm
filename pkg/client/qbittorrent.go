@@ -14,7 +14,6 @@ import (
 	"github.com/autobrr/tqm/pkg/expression"
 	"github.com/autobrr/tqm/pkg/logger"
 	"github.com/autobrr/tqm/pkg/sliceutils"
-	"github.com/autobrr/tqm/pkg/stringutils"
 
 	"github.com/dustin/go-humanize"
 	"github.com/sirupsen/logrus"
