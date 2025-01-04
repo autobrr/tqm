@@ -46,9 +46,9 @@ func Init(configFilePath string) error {
 	}
 
 	// load environment variables
-	if err := K.Load(env.Provider("TQM_", ".", func(s string) string {
+	if err := K.Load(env.Provider("TQM__", ".", func(s string) string {
 		return strings.Replace(strings.ToLower(
-			strings.TrimPrefix(s, "TQM_")), "_", ".", -1)
+			strings.TrimPrefix(s, "TQM__")), "_", ".", -1)
 	}), nil); err != nil {
 		return fmt.Errorf("load env: %w", err)
 	}
