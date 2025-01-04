@@ -15,9 +15,9 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X "github.com/autobrr/tqm/runtime.Version={{ .Version }}"
-      - -X "github.com/autobrr/tqm/runtime.GitCommit={{ .ShortCommit }}"
-      - -X "github.com/autobrr/tqm/runtime.Timestamp={{ .Timestamp }}"
+      - -X "github.com/autobrr/tqm/pkg/runtime.Version={{ .Version }}"
+      - -X "github.com/autobrr/tqm/pkg/runtime.GitCommit={{ .ShortCommit }}"
+      - -X "github.com/autobrr/tqm/pkg/runtime.Timestamp={{ .Timestamp }}"
     goos:
       - linux
       - windows
