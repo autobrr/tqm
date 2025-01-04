@@ -40,7 +40,7 @@ builds:
         goarch: arm
       - goos: freebsd
         goarch: arm64
-    main: main.go
+    main: cmd/tqm/main.go
     binary: tqm
 
 archives:
