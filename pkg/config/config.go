@@ -17,7 +17,6 @@ import (
 type Configuration struct {
 	Clients                    map[string]map[string]interface{}
 	Filters                    map[string]FilterConfiguration
-	Jobs                       Jobs
 	Trackers                   tracker.Config
 	BypassIgnoreIfUnregistered bool
 }
