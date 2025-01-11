@@ -14,6 +14,9 @@ func Init(cfg Config) error {
 	if cfg.PTP.User != "" && cfg.PTP.Key != "" {
 		trackers = append(trackers, NewPTP(cfg.PTP))
 	}
+	if cfg.RED.Key != "" {
+		trackers = append(trackers, NewRED(cfg.RED))
+	}
 
 	return nil
 }
