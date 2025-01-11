@@ -125,6 +125,7 @@ Currently implements:
 
 - Beyond-HD
 - PTP
+- RED
 
 ## Filtering Language Definition
 
