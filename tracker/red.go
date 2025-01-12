@@ -1,4 +1,3 @@
-// red.go
 package tracker
 
 import (
