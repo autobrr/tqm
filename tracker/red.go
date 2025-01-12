@@ -38,7 +38,7 @@ func (c *RED) Name() string {
 }
 
 func (c *RED) Check(host string) bool {
-	return strings.Contains(host, "redacted.sh")
+	return strings.Contains(host, "flacsfor.me")
 }
 
 func (c *RED) IsUnregistered(torrent *Torrent) (error, bool) {
@@ -65,8 +65,10 @@ func (c *RED) IsUnregistered(torrent *Torrent) (error, bool) {
 		}),
 	)
 	if err != nil {
-		c.log.WithError(err).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
-		return fmt.Errorf("redacted: request search: %w", err), false
+		if resp == nil {
+			c.log.WithError(err).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
+			return fmt.Errorf("redacted: request search: %w", err), false
+		}
 	}
 	defer resp.Body().Close()
 
