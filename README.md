@@ -115,7 +115,12 @@ trackers:
   ptp:
     api_user: your-api-user
     api_key: your-api-key
+  hdb:
+    username: your-username
+    passkey: your-passkey
   red:
+    api_key: your-api-key
+  ops:
     api_key: your-api-key
   unit3d:
     aither:
