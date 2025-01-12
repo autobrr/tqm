@@ -42,6 +42,8 @@ func (c *RED) Check(host string) bool {
 }
 
 func (c *RED) IsUnregistered(torrent *Torrent) (error, bool) {
+	//c.log.Infof("Checking RED torrent: %s", torrent.Name)
+
 	type Response struct {
 		Status   string `json:"status"`
 		Error    string `json:"error"`
@@ -73,12 +75,7 @@ func (c *RED) IsUnregistered(torrent *Torrent) (error, bool) {
 	defer resp.Body().Close()
 
 	// validate response
-	if resp.StatusCode() != 200 {
-		if resp.StatusCode() == 400 {
-			c.log.Errorf("Invalid hash for %s (hash: %s), response: %s",
-				torrent.Name, torrent.Hash, resp.Status())
-			return nil, false // Return nil error for invalid hash
-		}
+	if resp.StatusCode() != 200 && resp.StatusCode() != 400 {
 		c.log.WithError(err).Errorf("Failed validating search response for %s (hash: %s), response: %s",
 			torrent.Name, torrent.Hash, resp.Status())
 		return fmt.Errorf("redacted: validate search response: %s", resp.Status()), false
