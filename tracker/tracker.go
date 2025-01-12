@@ -17,7 +17,12 @@ func Init(cfg Config) error {
 	if cfg.RED.Key != "" {
 		trackers = append(trackers, NewRED(cfg.RED))
 	}
-
+	if cfg.OPS.Key != "" {
+		trackers = append(trackers, NewOPS(cfg.OPS))
+	}
+	if cfg.HDB.Username != "" && cfg.HDB.Passkey != "" {
+		trackers = append(trackers, NewHDB(cfg.HDB))
+	}
 	return nil
 }
 
