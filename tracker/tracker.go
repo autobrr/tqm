@@ -23,6 +23,11 @@ func Init(cfg Config) error {
 	if cfg.HDB.Username != "" && cfg.HDB.Passkey != "" {
 		trackers = append(trackers, NewHDB(cfg.HDB))
 	}
+	for name, unit3dCfg := range cfg.UNIT3D {
+		if unit3dCfg.APIKey != "" && unit3dCfg.Domain != "" {
+			trackers = append(trackers, NewUNIT3D(name, unit3dCfg))
+		}
+	}
 	return nil
 }
 

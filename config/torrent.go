@@ -50,6 +50,7 @@ type Torrent struct {
 	// tracker
 	TrackerName   string `json:"TrackerName"`
 	TrackerStatus string `json:"TrackerStatus"`
+	Comment       string `json:"Comment"`
 
 	// set by command
 	HardlinkedOutsideClient bool `json:"-"`

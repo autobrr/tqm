@@ -117,6 +117,13 @@ trackers:
     api_key: your-api-key
   red:
     api_key: your-api-key
+  unit3d:
+    aither:
+      api_key: your_api_key
+      domain: aither.cc
+    blutopia:
+      api_key: your_api_key
+      domain: blutopia.cc
 ```
 
 Allows tqm to validate if a torrent was removed from the tracker using the tracker's own API.
@@ -124,8 +131,11 @@ Allows tqm to validate if a torrent was removed from the tracker using the track
 Currently implements:
 
 - Beyond-HD
+- HDB
+- OPS
 - PTP
 - RED
+- UNIT3D trackers
 
 ## Filtering Language Definition
 
