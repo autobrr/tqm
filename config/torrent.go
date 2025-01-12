@@ -10,13 +10,39 @@ import (
 
 var (
 	unregisteredStatuses = []string{
-		"not registered with this tracker",
+		"complete season uploaded",
+		"dead",
+		"dupe",
+		"i'm sorry dave, i can't do that", // RFM specific
+		"infohash not found",
+		"internal available",
+		"not exist",
+		"not found",
+		"not registered",
+		"nuked",
+		"pack is available",
+		"packs are available",
+		"problem with description",
+		"problem with file",
+		"problem with pack",
+		"retitled",
+		"season pack",
+		"specifically banned",
+		"torrent does not exist",
+		"torrent existiert nicht",
+		"torrent has been deleted",
+		"torrent has been nuked",
 		"torrent is not authorized for use on this tracker",
 		"torrent is not found",
+		"torrent nicht gefunden",
+		"tracker nicht registriert",
 		"torrent not found",
-		"torrent has been nuked",
-		"torrent does not exist",
-		"unregistered torrent",
+		"trump",
+		"truncated",
+		"unknown",
+		"unregistered",
+		"upgraded",
+		"uploaded",
 	}
 )
 
