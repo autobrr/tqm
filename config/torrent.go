@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/autobrr/tqm/logger"
 	"github.com/autobrr/tqm/sliceutils"
 	"github.com/autobrr/tqm/tracker"
 )
@@ -143,10 +144,22 @@ func (t *Torrent) HasMissingFiles() bool {
 		return false
 	}
 
-	// check if files exist on disk
+	log := logger.GetLogger("torrent")
+
 	for _, f := range t.Files {
-		if _, err := os.Stat(f); os.IsNotExist(err) {
-			return true
+		if f == "" {
+			log.Tracef("Skipping empty path for torrent: %s", t.Name)
+			continue
+		}
+
+		_, err := os.Stat(f)
+		if err != nil {
+			if os.IsNotExist(err) {
+				//log.Debugf("Missing file detected: %s for torrent: %s", f, t.Name)
+				return true
+			}
+			log.Warnf("Error checking file %s for torrent %s: %v", f, t.Name, err)
+			continue
 		}
 	}
 
