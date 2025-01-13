@@ -2,6 +2,7 @@ package config
 
 import (
 	"math"
+	"os"
 	"strings"
 
 	"github.com/autobrr/tqm/sliceutils"
@@ -130,6 +131,21 @@ func (t *Torrent) HasAllTags(tags ...string) bool {
 func (t *Torrent) HasAnyTag(tags ...string) bool {
 	for _, v := range tags {
 		if sliceutils.StringSliceContains(t.Tags, v, true) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (t *Torrent) HasMissingFiles() bool {
+	if !t.Downloaded {
+		return false
+	}
+
+	// check if files exist on disk
+	for _, f := range t.Files {
+		if _, err := os.Stat(f); os.IsNotExist(err) {
 			return true
 		}
 	}
