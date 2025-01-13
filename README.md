@@ -248,3 +248,53 @@ filters:
 `FreeSpaceGB()` will only increase as torrents are hard-removed.
 
 This only works with one disk referenced by `free_space_path` and will not account for torrents being on **different disks**.
+
+## regexp2 Pattern Matching
+
+TQM uses the regexp2 library for advanced pattern matching, providing .NET style regex capabilities. This offers several advantages over Go's standard regex package:
+- More powerful pattern matching features
+- Better protection against catastrophic backtracking
+- Compatibility with .NET style regex patterns
+- Reliable Unicode support
+
+### Available Functions
+
+```yaml
+filters:
+  default:
+    tag:
+      # Single pattern matching
+      - RegexMatch("(?i)\\bpattern\\b")
+      
+      # Match any of multiple patterns (comma-separated)
+      - RegexMatchAny("(?i)\\bpattern1\\b, (?i)\\bpattern2\\b")
+      
+      # Match all patterns (comma-separated)
+      - RegexMatchAll("(?i)\\bpattern1\\b, (?i)\\bpattern2\\b")
+```
+
+### Pattern Features
+- Case insensitive matching with `(?i)`
+- Word boundaries with `\b`
+- Lookahead assertions:
+  - Positive `(?=...)`
+  - Negative `(?!...)`
+- Lookbehind assertions:
+  - Positive `(?<=...)`
+  - Negative `(?<!...)`
+- Unicode support
+- Timeout support for preventing catastrophic backtracking
+
+### Tips
+- Each pattern can have its own case sensitivity flag:
+  ```yaml
+  # First pattern is case-insensitive, second is case-sensitive
+  - RegexMatchAny("(?i)pattern1, pattern2")
+  
+  # Both patterns are case-insensitive
+  - RegexMatchAny("(?i)pattern1, (?i)pattern2")
+  ```
+- Patterns are comma-separated
+- Use word boundaries to prevent partial matches
+- Lookbehind assertions must be fixed-width
+- Patterns have a timeout to prevent regex denial of service

@@ -4,6 +4,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/autobrr/tqm/regex"
 	"github.com/autobrr/tqm/sliceutils"
 	"github.com/autobrr/tqm/tracker"
 )
@@ -79,6 +80,8 @@ type Torrent struct {
 
 	// set by command
 	HardlinkedOutsideClient bool `json:"-"`
+
+	regexPattern *regex.Pattern
 }
 
 func (t *Torrent) IsUnregistered() bool {
@@ -139,4 +142,70 @@ func (t *Torrent) HasAnyTag(tags ...string) bool {
 
 func (t *Torrent) Log(n float64) float64 {
 	return math.Log(n)
+}
+
+// RegexMatch delegates to the regex checker
+func (t *Torrent) RegexMatch(pattern string) bool {
+	// Compile pattern if needed
+	if t.regexPattern == nil || t.regexPattern.Expression.String() != pattern {
+		compiled, err := regex.Compile(pattern)
+		if err != nil {
+			return false
+		}
+		t.regexPattern = compiled
+	}
+
+	// Check pattern
+	match, err := regex.Check(t.Name, t.regexPattern)
+	if err != nil {
+		return false
+	}
+
+	return match
+}
+
+// RegexMatchAny checks if the torrent name matches any of the provided patterns
+func (t *Torrent) RegexMatchAny(patternsStr string) bool {
+	// Split the comma-separated string into patterns
+	patterns := strings.Split(patternsStr, ",")
+
+	var compiledPatterns []*regex.Pattern
+	for _, p := range patterns {
+		// Trim any whitespace
+		p = strings.TrimSpace(p)
+		compiled, err := regex.Compile(p)
+		if err != nil {
+			continue
+		}
+		compiledPatterns = append(compiledPatterns, compiled)
+	}
+
+	match, err := regex.CheckAny(t.Name, compiledPatterns)
+	if err != nil {
+		return false
+	}
+	return match
+}
+
+// RegexMatchAll checks if the torrent name matches all of the provided patterns
+func (t *Torrent) RegexMatchAll(patternsStr string) bool {
+	// Split the comma-separated string into patterns
+	patterns := strings.Split(patternsStr, ",")
+
+	var compiledPatterns []*regex.Pattern
+	for _, p := range patterns {
+		// Trim any whitespace
+		p = strings.TrimSpace(p)
+		compiled, err := regex.Compile(p)
+		if err != nil {
+			return false
+		}
+		compiledPatterns = append(compiledPatterns, compiled)
+	}
+
+	match, err := regex.CheckAll(t.Name, compiledPatterns)
+	if err != nil {
+		return false
+	}
+	return match
 }

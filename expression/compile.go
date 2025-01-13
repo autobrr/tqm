@@ -5,12 +5,23 @@ import (
 
 	"github.com/autobrr/tqm/config"
 
+	"github.com/autobrr/tqm/regex"
 	"github.com/expr-lang/expr"
 )
 
 func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 	exprEnv := &config.Torrent{}
 	exp := new(Expressions)
+
+	// validate all regex patterns in expressions
+	patterns, err := getAllPatternsFromFilter(filter)
+	if err != nil {
+		return nil, fmt.Errorf("invalid regex pattern: %w", err)
+	}
+
+	if err := regex.ValidatePatterns(patterns); err != nil {
+		return nil, fmt.Errorf("invalid regex pattern: %w", err)
+	}
 
 	// compile ignores
 	for _, ignoreExpr := range filter.Ignore {
