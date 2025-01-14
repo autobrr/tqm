@@ -108,6 +108,7 @@ func (t *Torrent) IsUnregistered() bool {
 			Seeding:         t.Seeding,
 			TrackerName:     t.TrackerName,
 			TrackerStatus:   t.State,
+			Comment:         t.Comment,
 		}
 
 		if err, ur := tr.IsUnregistered(tt); err == nil {

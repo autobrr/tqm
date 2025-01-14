@@ -58,7 +58,7 @@ func (c *UNIT3D) extractTorrentID(comment string) (string, error) {
 	}
 
 	// extract torrent ID from any URL in the comment that matches our domain
-	re := regexp.MustCompile(fmt.Sprintf(`https?://[^/]*%s/torrents/(\d+)`, regexp.QuoteMeta(c.cfg.Domain)))
+	re := regexp.MustCompile(fmt.Sprintf(`https?://[^/]*%s/(?:torrents|details)/(\d+)`, regexp.QuoteMeta(c.cfg.Domain)))
 	matches := re.FindStringSubmatch(comment)
 
 	if len(matches) < 2 {
