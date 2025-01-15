@@ -112,6 +112,8 @@ filters:
 trackers:
   bhd:
     api_key: your-api-key
+  btn:
+    api_key: your-api-key
   ptp:
     api_user: your-api-user
     api_key: your-api-key
@@ -136,11 +138,14 @@ Allows tqm to validate if a torrent was removed from the tracker using the track
 Currently implements:
 
 - Beyond-HD
+- BTN
 - HDB
 - OPS
 - PTP
 - RED
 - UNIT3D trackers
+
+**Note for BTN users**: When first using the BTN API, you may need to authorize your IP address. Check your BTN notices/messages for the authorization request.
 
 ## Filtering Language Definition
 
