@@ -54,7 +54,7 @@ filters:
       - '"permaseed" in Tags && !IsUnregistered()'
     remove:
       # general
-      - IsUnregistered() && !IsTrackerDown()
+      - IsUnregistered()
       # imported
       - Label in ["sonarr-imported", "radarr-imported", "lidarr-imported"] && (Ratio > 4.0 || SeedingDays >= 15.0)
       # ipt
@@ -205,12 +205,25 @@ Log(n float64) float64    // The natural logarithm function
 
 When using both `IsUnregistered()` and `IsTrackerDown()` in filters:
 
-- `IsUnregistered() && !IsTrackerDown()` - Only matches torrents that are confirmed unregistered while the tracker is responding
-- This helps prevent false positives where torrents might appear unregistered simply because their tracker is down
+- `IsUnregistered()` has built-in protection against tracker down states - it will return `false` if the tracker is down
+- `IsTrackerDown()` checks if the tracker status indicates the tracker is unreachable/down
 - The functions are independent but related - a torrent can be:
   - Unregistered with tracker up (IsUnregistered: true, IsTrackerDown: false)
   - Status unknown with tracker down (IsUnregistered: false, IsTrackerDown: true)
   - Registered with tracker up (IsUnregistered: false, IsTrackerDown: false)
+
+Note: While `IsUnregistered()` automatically handles tracker down states, you may still want to explicitly check for `IsTrackerDown()` in your ignore filters to prevent any actions when tracker status is uncertain.
+
+Example:
+
+```yaml
+filters:
+  default:
+    ignore:
+      - IsTrackerDown()  # Skip any actions when tracker is down
+    remove:
+      - IsUnregistered() # Safe to use alone due to built-in protection
+```
 
 ## BypassIgnoreIfUnregistered
 
