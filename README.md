@@ -45,7 +45,7 @@ filters:
   default:
     ignore:
       # general
-      - TrackerStatus contains "Tracker is down"
+      - IsTrackerDown()
       - Downloaded == false && !IsUnregistered()
       - SeedingHours < 26 && !IsUnregistered()
       # permaseed / un-sorted (unless torrent has been deleted)
@@ -54,7 +54,7 @@ filters:
       - '"permaseed" in Tags && !IsUnregistered()'
     remove:
       # general
-      - IsUnregistered()
+      - IsUnregistered() && !IsTrackerDown()
       # imported
       - Label in ["sonarr-imported", "radarr-imported", "lidarr-imported"] && (Ratio > 4.0 || SeedingDays >= 15.0)
       # ipt
@@ -194,11 +194,23 @@ All of this and more can be noted in the [language definition](https://github.co
 The following helper functions are available for usage while filtering, usage examples are available in the example config above.
 
 ```go
-IsUnregistered() bool // Evaluates to true if torrent is unregistered in the tracker
+IsUnregistered() bool     // Evaluates to true if torrent is unregistered in the tracker
+IsTrackerDown() bool      // Evaluates to true if the tracker appears to be down/unreachable
 HasAllTags(tags ...string) bool // True if torrent has ALL tags specified
-HasAnyTag(tags ...string) bool // True if torrent has at least one tag specified
-Log(n float64) float64 // The natural logarithm function
+HasAnyTag(tags ...string) bool  // True if torrent has at least one tag specified
+Log(n float64) float64    // The natural logarithm function
 ```
+
+### IsUnregistered and IsTrackerDown
+
+When using both `IsUnregistered()` and `IsTrackerDown()` in filters:
+
+- `IsUnregistered() && !IsTrackerDown()` - Only matches torrents that are confirmed unregistered while the tracker is responding
+- This helps prevent false positives where torrents might appear unregistered simply because their tracker is down
+- The functions are independent but related - a torrent can be:
+  - Unregistered with tracker up (IsUnregistered: true, IsTrackerDown: false)
+  - Status unknown with tracker down (IsUnregistered: false, IsTrackerDown: true)
+  - Registered with tracker up (IsUnregistered: false, IsTrackerDown: false)
 
 ## BypassIgnoreIfUnregistered
 
@@ -210,7 +222,7 @@ filters:
   default:
     ignore:
       # general
-      - TrackerStatus contains "Tracker is down"
+      - IsTrackerDown()
       - Downloaded == false && !IsUnregistered()
       - SeedingHours < 26 && !IsUnregistered()
       # permaseed / un-sorted (unless torrent has been deleted)
@@ -228,7 +240,7 @@ filters:
   default:
     ignore:
       # general
-      - TrackerStatus contains "Tracker is down"
+      - IsTrackerDown()
       - Downloaded == false
       - SeedingHours < 26
       # permaseed / un-sorted (unless torrent has been deleted)
@@ -236,8 +248,6 @@ filters:
       # Filter based on qbittorrent tags (only qbit at the moment)
       - '"permaseed" in Tags
 ```
-
-**Note:** If `TrackerStatus contains "Tracker is down"` then a torrent will not be considered unregistered anyways and will be ignored when tracker is down assuming the above filters.
 
 ## Supported Clients
 

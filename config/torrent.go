@@ -39,11 +39,20 @@ var (
 		"tracker nicht registriert",
 		"torrent not found",
 		"trump",
-		//"truncated", // Tracker is down
 		"unknown",
 		"unregistered",
 		"upgraded",
 		"uploaded",
+	}
+
+	trackerDownStatuses = []string{
+		"bad gateway",
+		"down",
+		"maintenance",
+		"tracker is down",
+		"tracker unavailable",
+		"truncated",
+		"unreachable",
 	}
 )
 
@@ -86,7 +95,7 @@ type Torrent struct {
 }
 
 func (t *Torrent) IsUnregistered() bool {
-	if t.TrackerStatus == "" || strings.Contains(t.TrackerStatus, "Tracker is down") {
+	if t.TrackerStatus == "" {
 		return false
 	}
 
@@ -210,4 +219,39 @@ func (t *Torrent) RegexMatchAll(patternsStr string) bool {
 		return false
 	}
 	return match
+}
+
+func (t *Torrent) IsTrackerDown() bool {
+	if t.TrackerStatus == "" {
+		return false
+	}
+
+	status := strings.ToLower(t.TrackerStatus)
+	for _, v := range trackerDownStatuses {
+		if strings.Contains(status, v) {
+			return true
+		}
+	}
+
+	// check tracker api (if available)
+	if tr := tracker.Get(t.TrackerName); tr != nil {
+		tt := &tracker.Torrent{
+			Hash:            t.Hash,
+			Name:            t.Name,
+			TotalBytes:      t.TotalBytes,
+			DownloadedBytes: t.DownloadedBytes,
+			State:           t.State,
+			Downloaded:      t.Downloaded,
+			Seeding:         t.Seeding,
+			TrackerName:     t.TrackerName,
+			TrackerStatus:   t.State,
+			Comment:         t.Comment,
+		}
+
+		if err, down := tr.IsTrackerDown(tt); err == nil {
+			return down
+		}
+	}
+
+	return false
 }

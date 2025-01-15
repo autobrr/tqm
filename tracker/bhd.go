@@ -92,3 +92,7 @@ func (c *BHD) IsUnregistered(torrent *Torrent) (error, bool) {
 
 	return nil, b.TotalResults < 1
 }
+
+func (c *BHD) IsTrackerDown(torrent *Torrent) (error, bool) {
+	return nil, false
+}
