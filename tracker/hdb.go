@@ -102,3 +102,7 @@ func (c *HDB) IsUnregistered(torrent *Torrent) (error, bool) {
 	// if we get no results for a valid hash, the torrent is unregistered
 	return nil, b.Status == 0 && len(b.Data) == 0
 }
+
+func (c *HDB) IsTrackerDown(torrent *Torrent) (error, bool) {
+	return nil, false
+}

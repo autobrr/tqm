@@ -39,11 +39,51 @@ var (
 		"tracker nicht registriert",
 		"torrent not found",
 		"trump",
-		//"truncated", // Tracker is down
 		"unknown",
 		"unregistered",
 		"upgraded",
 		"uploaded",
+	}
+
+	trackerDownStatuses = []string{
+		// libtorrent HTTP status messages
+		// https://github.com/arvidn/libtorrent/blob/RC_2_0/src/error_code.cpp#L320-L339
+		// https://github.com/arvidn/libtorrent/blob/RC_1_2/src/error_code.cpp#L298-L317
+		"continue",              // 100 - server still processing
+		"multiple choices",      // 300 - could indicate load balancer issues
+		"not modified",          // 304 - could be caching issues
+		"bad request",           // 400
+		"unauthorized",          // 401
+		"forbidden",             // 403
+		"internal server error", // 500
+		"not implemented",       // 501
+		"bad gateway",           // 502
+		"service unavailable",   // 503
+		"moved permanently",     // 301
+		"moved temporarily",     // 302
+		"(unknown http error)",
+
+		// tracker/network errors
+		"down",
+		"maintenance",
+		"tracker is down",
+		"tracker unavailable",
+		"truncated",
+		"unreachable",
+		"not working",
+		"not responding",
+		"timeout",
+		"refused",
+		"no connection",
+		"cannot connect",
+		"connection failed",
+		"ssl error",
+		"no data",
+		"timed out",
+		"temporarily disabled",
+		"unresolvable",
+		"host not found",
+		"offline",
 	}
 )
 
@@ -85,8 +125,27 @@ type Torrent struct {
 	regexPattern *regex.Pattern
 }
 
+func (t *Torrent) IsTrackerDown() bool {
+	if t.TrackerStatus == "" {
+		return false
+	}
+
+	status := strings.ToLower(t.TrackerStatus)
+	for _, v := range trackerDownStatuses {
+		if strings.Contains(status, v) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (t *Torrent) IsUnregistered() bool {
-	if t.TrackerStatus == "" || strings.Contains(t.TrackerStatus, "Tracker is down") {
+	if t.IsTrackerDown() {
+		return false
+	}
+
+	if t.TrackerStatus == "" {
 		return false
 	}
 

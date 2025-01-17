@@ -88,3 +88,7 @@ func (c *PTP) IsUnregistered(torrent *Torrent) (error, bool) {
 
 	return nil, b.Result == "ERROR" && b.ResultDetails == "Unregistered Torrent"
 }
+
+func (c *PTP) IsTrackerDown(torrent *Torrent) (error, bool) {
+	return nil, false
+}

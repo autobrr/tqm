@@ -91,3 +91,7 @@ func (c *RED) IsUnregistered(torrent *Torrent) (error, bool) {
 
 	return nil, b.Status == "failure" && b.Error == "bad hash parameter"
 }
+
+func (c *RED) IsTrackerDown(torrent *Torrent) (error, bool) {
+	return nil, false
+}

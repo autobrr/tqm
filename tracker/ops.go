@@ -89,3 +89,7 @@ func (c *OPS) IsUnregistered(torrent *Torrent) (error, bool) {
 
 	return nil, b.Status == "failure" && b.Error == "bad parameters"
 }
+
+func (c *OPS) IsTrackerDown(torrent *Torrent) (error, bool) {
+	return nil, false
+}

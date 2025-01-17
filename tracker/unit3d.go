@@ -146,3 +146,7 @@ func (c *UNIT3D) IsUnregistered(torrent *Torrent) (error, bool) {
 		torrent.Hash, b.Data.Attributes.InfoHash)
 	return nil, true
 }
+
+func (c *UNIT3D) IsTrackerDown(torrent *Torrent) (error, bool) {
+	return nil, false
+}
