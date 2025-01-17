@@ -63,5 +63,4 @@ func Init(configFilePath string) error {
 
 func ShowUsing() {
 	log.Infof("Using %s = %q", stringutils.LeftJust("CONFIG", " ", 10), cfgPath)
-
 }

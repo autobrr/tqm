@@ -96,7 +96,7 @@ func (c *QBittorrent) Connect() error {
 	apiVersion, err := c.client.GetWebAPIVersion()
 	if err != nil {
 		return fmt.Errorf("get api version: %w", err)
-	} 
+	}
 	//else if stringutils.Atof64(apiVersion[0:3], 0.0) < 2.2 {
 	//	return fmt.Errorf("unsupported webapi version: %v", apiVersion)
 	//}
@@ -240,6 +240,7 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 			// tracker
 			TrackerName:   trackerName,
 			TrackerStatus: trackerStatus,
+			Comment:       td.Comment,
 		}
 
 		torrents[t.Hash] = torrent

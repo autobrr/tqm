@@ -1,8 +1,12 @@
 package tracker
 
 type Config struct {
-	BHD BHDConfig
-	PTP PTPConfig
+	BHD    BHDConfig
+	PTP    PTPConfig
+	HDB    HDBConfig
+	RED    REDConfig
+	OPS    OPSConfig
+	UNIT3D map[string]UNIT3DConfig
 }
 
 type Torrent struct {
@@ -18,4 +22,5 @@ type Torrent struct {
 	// tracker
 	TrackerName   string
 	TrackerStatus string
+	Comment       string
 }

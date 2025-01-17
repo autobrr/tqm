@@ -6,6 +6,7 @@ require (
 	github.com/autobrr/go-qbittorrent v1.11.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bobesa/go-domain-util v0.0.0-20190911083921-4033b5f7dd89
+	github.com/dlclark/regexp2 v1.11.4
 	github.com/dustin/go-humanize v1.0.1
 	github.com/expr-lang/expr v1.16.9
 	github.com/gdm85/go-libdeluge v0.6.0
