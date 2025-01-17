@@ -46,13 +46,44 @@ var (
 	}
 
 	trackerDownStatuses = []string{
-		"bad gateway",
+		// libtorrent HTTP status messages
+		// https://github.com/arvidn/libtorrent/blob/RC_2_0/src/error_code.cpp#L320-L339
+		// https://github.com/arvidn/libtorrent/blob/RC_1_2/src/error_code.cpp#L298-L317
+		"continue",              // 100 - server still processing
+		"multiple choices",      // 300 - could indicate load balancer issues
+		"not modified",          // 304 - could be caching issues
+		"bad request",           // 400
+		"unauthorized",          // 401
+		"forbidden",             // 403
+		"internal server error", // 500
+		"not implemented",       // 501
+		"bad gateway",           // 502
+		"service unavailable",   // 503
+		"moved permanently",     // 301
+		"moved temporarily",     // 302
+		"(unknown http error)",
+
+		// tracker/network errors
 		"down",
 		"maintenance",
 		"tracker is down",
 		"tracker unavailable",
 		"truncated",
 		"unreachable",
+		"not working",
+		"not responding",
+		"timeout",
+		"refused",
+		"no connection",
+		"cannot connect",
+		"connection failed",
+		"ssl error",
+		"no data",
+		"timed out",
+		"temporarily disabled",
+		"unresolvable",
+		"host not found",
+		"offline",
 	}
 )
 
