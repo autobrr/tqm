@@ -197,6 +197,7 @@ The following helper functions are available for usage while filtering, usage ex
 IsUnregistered() bool // Evaluates to true if torrent is unregistered in the tracker
 HasAllTags(tags ...string) bool // True if torrent has ALL tags specified
 HasAnyTag(tags ...string) bool // True if torrent has at least one tag specified
+HasMissingFiles() bool // True if any of the torrent's files are missing from disk
 Log(n float64) float64 // The natural logarithm function
 ```
 

@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	prefixLen       = 14
+	prefixLen       = 15
 	loggingFilePath string
 )
 
