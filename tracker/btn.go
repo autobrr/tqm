@@ -139,9 +139,8 @@ func (c *BTN) IsUnregistered(torrent *Torrent) (error, bool) {
 	}
 	defer resp.Body.Close()
 
-	// if we get a 404 or any error response, the torrent is likely unregistered
 	if resp.StatusCode != http.StatusOK {
-		return nil, true
+		return fmt.Errorf("btn: unexpected status code: %d", resp.StatusCode), false
 	}
 
 	// decode response
