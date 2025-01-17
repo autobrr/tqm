@@ -157,13 +157,11 @@ func (t *Torrent) HasMissingFiles() bool {
 			continue
 		}
 
-		_, err := os.Stat(f)
-		if err != nil {
+		if _, err := os.Stat(f); err != nil {
 			if os.IsNotExist(err) {
-				//log.Debugf("Missing file detected: %s for torrent: %s", f, t.Name)
 				return true
 			}
-			log.Warnf("Error checking file %s for torrent %s: %v", f, t.Name, err)
+			log.Warnf("error checking file '%s' for torrent '%s': %v", f, t.Name, err)
 			continue
 		}
 	}
