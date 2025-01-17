@@ -2,6 +2,7 @@ package tracker
 
 type Config struct {
 	BHD    BHDConfig
+	BTN    BTNConfig
 	PTP    PTPConfig
 	HDB    HDBConfig
 	RED    REDConfig
