@@ -15,6 +15,8 @@ import (
 	"go.uber.org/ratelimit"
 )
 
+var torrentIDRegex = regexp.MustCompile(`https?://[^/]*broadcasthe\.net/torrents\.php\?action=reqlink&id=(\d+)`)
+
 type BTNConfig struct {
 	Key string `koanf:"api_key"`
 }
@@ -48,8 +50,7 @@ func (c *BTN) extractTorrentID(comment string) (string, error) {
 		return "", fmt.Errorf("empty comment field")
 	}
 
-	re := regexp.MustCompile(`https?://[^/]*broadcasthe\.net/torrents\.php\?action=reqlink&id=(\d+)`)
-	matches := re.FindStringSubmatch(comment)
+	matches := torrentIDRegex.FindStringSubmatch(comment)
 
 	if len(matches) < 2 {
 		return "", fmt.Errorf("no torrent ID found in comment: %s", comment)
