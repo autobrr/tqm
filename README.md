@@ -45,7 +45,7 @@ filters:
   default:
     ignore:
       # general
-      - TrackerStatus contains "Tracker is down"
+      - IsTrackerDown()
       - Downloaded == false && !IsUnregistered()
       - SeedingHours < 26 && !IsUnregistered()
       # permaseed / un-sorted (unless torrent has been deleted)
@@ -199,10 +199,36 @@ All of this and more can be noted in the [language definition](https://github.co
 The following helper functions are available for usage while filtering, usage examples are available in the example config above.
 
 ```go
-IsUnregistered() bool // Evaluates to true if torrent is unregistered in the tracker
+IsUnregistered() bool     // Evaluates to true if torrent is unregistered in the tracker
+IsTrackerDown() bool      // Evaluates to true if the tracker appears to be down/unreachable
 HasAllTags(tags ...string) bool // True if torrent has ALL tags specified
-HasAnyTag(tags ...string) bool // True if torrent has at least one tag specified
-Log(n float64) float64 // The natural logarithm function
+HasAnyTag(tags ...string) bool  // True if torrent has at least one tag specified
+HasMissingFiles() bool // True if any of the torrent's files are missing from disk
+Log(n float64) float64    // The natural logarithm function
+```
+
+### IsUnregistered and IsTrackerDown
+
+When using both `IsUnregistered()` and `IsTrackerDown()` in filters:
+
+- `IsUnregistered()` has built-in protection against tracker down states - it will return `false` if the tracker is down
+- `IsTrackerDown()` checks if the tracker status indicates the tracker is unreachable/down
+- The functions are independent but related - a torrent can be:
+  - Unregistered with tracker up (IsUnregistered: true, IsTrackerDown: false)
+  - Status unknown with tracker down (IsUnregistered: false, IsTrackerDown: true)
+  - Registered with tracker up (IsUnregistered: false, IsTrackerDown: false)
+
+Note: While `IsUnregistered()` automatically handles tracker down states, you may still want to explicitly check for `IsTrackerDown()` in your ignore filters to prevent any actions when tracker status is uncertain.
+
+Example:
+
+```yaml
+filters:
+  default:
+    ignore:
+      - IsTrackerDown()  # Skip any actions when tracker is down
+    remove:
+      - IsUnregistered() # Safe to use alone due to built-in protection
 ```
 
 ## BypassIgnoreIfUnregistered
@@ -215,7 +241,7 @@ filters:
   default:
     ignore:
       # general
-      - TrackerStatus contains "Tracker is down"
+      - IsTrackerDown()
       - Downloaded == false && !IsUnregistered()
       - SeedingHours < 26 && !IsUnregistered()
       # permaseed / un-sorted (unless torrent has been deleted)
@@ -233,7 +259,7 @@ filters:
   default:
     ignore:
       # general
-      - TrackerStatus contains "Tracker is down"
+      - IsTrackerDown()
       - Downloaded == false
       - SeedingHours < 26
       # permaseed / un-sorted (unless torrent has been deleted)
@@ -241,8 +267,6 @@ filters:
       # Filter based on qbittorrent tags (only qbit at the moment)
       - '"permaseed" in Tags
 ```
-
-**Note:** If `TrackerStatus contains "Tracker is down"` then a torrent will not be considered unregistered anyways and will be ignored when tracker is down assuming the above filters.
 
 ## Supported Clients
 
