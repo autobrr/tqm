@@ -2,8 +2,10 @@ package config
 
 import (
 	"math"
+	"os"
 	"strings"
 
+	"github.com/autobrr/tqm/logger"
 	"github.com/autobrr/tqm/regex"
 	"github.com/autobrr/tqm/sliceutils"
 	"github.com/autobrr/tqm/tracker"
@@ -195,6 +197,31 @@ func (t *Torrent) HasAnyTag(tags ...string) bool {
 	for _, v := range tags {
 		if sliceutils.StringSliceContains(t.Tags, v, true) {
 			return true
+		}
+	}
+
+	return false
+}
+
+func (t *Torrent) HasMissingFiles() bool {
+	if !t.Downloaded {
+		return false
+	}
+
+	log := logger.GetLogger("torrent")
+
+	for _, f := range t.Files {
+		if f == "" {
+			log.Tracef("Skipping empty path for torrent: %s", t.Name)
+			continue
+		}
+
+		if _, err := os.Stat(f); err != nil {
+			if os.IsNotExist(err) {
+				return true
+			}
+			log.Warnf("error checking file '%s' for torrent '%s': %v", f, t.Name, err)
+			continue
 		}
 	}
 
