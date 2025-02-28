@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/autobrr/tqm/client"
 	"github.com/autobrr/tqm/config"
@@ -128,78 +130,134 @@ var orphanCmd = &cobra.Command{
 		log.Infof("Retrieved paths from %q: %d files / %d folders", *clientDownloadPath, len(localFilePaths),
 			len(localFolderPaths))
 
-		// remove local files not associated with a torrent
-		removeFailures := 0
-		removedLocalFiles := 0
-		var removedLocalFilesSize uint64 = 0
+		const maxWorkers = 10
+		const batchSize = 50
 
-		for localPath, localPathSize := range localFilePaths {
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		var atomicRemoveFailures uint32
+		var atomicRemovedLocalFiles uint32
+		var atomicRemovedLocalFilesSize uint64
+
+		processInBatches(localFilePaths, maxWorkers, batchSize, func(localPath string, localPathSize int64) {
+			defer wg.Done()
+
 			if tfm.HasPath(localPath, clientDownloadPathMapping) {
-				continue
+				return
+			}
+
+			mu.Lock()
+			log.Info("-----")
+			log.Infof("Removing orphan: %q", localPath)
+			mu.Unlock()
+
+			removed := true // file is not associated with a torrent
+
+			if flagDryRun {
+				mu.Lock()
+				log.Warn("Dry-run enabled, skipping remove...")
+				mu.Unlock()
 			} else {
-				log.Info("-----")
-
-				// file is not associated with a torrent
-				removed := true
-
-				log.Infof("Removing orphan: %q", localPath)
-				if flagDryRun {
-					log.Warn("Dry-run enabled, skipping remove...")
+				if err := os.Remove(localPath); err != nil {
+					mu.Lock()
+					log.WithError(err).Errorf("Failed removing orphan...")
+					mu.Unlock()
+					atomic.AddUint32(&atomicRemoveFailures, 1)
+					removed = false
 				} else {
-					// remove file
-					if err := os.Remove(localPath); err != nil {
-						log.WithError(err).Errorf("Failed removing orphan...")
-						removeFailures++
-						removed = false
-					} else {
-						log.Info("Removed")
-					}
-				}
-
-				if removed {
-					removedLocalFilesSize += uint64(localPathSize)
-					removedLocalFiles++
+					mu.Lock()
+					log.Info("Removed")
+					mu.Unlock()
 				}
 			}
-		}
 
-		// remove local folders not associated with a torrent
-		removedLocalFolders := 0
+			if removed {
+				atomic.AddUint64(&atomicRemovedLocalFilesSize, uint64(localPathSize))
+				atomic.AddUint32(&atomicRemovedLocalFiles, 1)
+			}
+		}, &wg)
+
+		wg.Wait()
+
+		// process folders sequentially, since concurrent folder deletion can be problematic
+		var removedLocalFolders uint32
 
 		for localPath := range localFolderPaths {
 			if tfm.HasPath(localPath, clientDownloadPathMapping) {
 				continue
+			}
+
+			log.Info("-----")
+			log.Infof("Removing orphan: %q", localPath)
+
+			removed := true
+
+			if flagDryRun {
+				log.Warn("Dry-run enabled, skipping remove...")
 			} else {
-				log.Info("-----")
-
-				// folder is not associated with a torrent
-				removed := true
-
-				log.Infof("Removing orphan: %q", localPath)
-				if flagDryRun {
-					log.Warn("Dry-run enabled, skipping remove...")
+				if err := os.Remove(localPath); err != nil {
+					log.WithError(err).Errorf("Failed removing orphan...")
+					atomic.AddUint32(&atomicRemoveFailures, 1)
+					removed = false
 				} else {
-					// remove folder
-					if err := os.Remove(localPath); err != nil {
-						log.WithError(err).Errorf("Failed removing orphan...")
-						removeFailures++
-						removed = false
-					} else {
-						log.Info("Removed")
-					}
-				}
-
-				if removed {
-					removedLocalFolders++
+					log.Info("Removed")
 				}
 			}
+
+			if removed {
+				removedLocalFolders++
+			}
 		}
+
+		removeFailures := atomic.LoadUint32(&atomicRemoveFailures)
+		removedLocalFiles := atomic.LoadUint32(&atomicRemovedLocalFiles)
+		removedLocalFilesSize := atomic.LoadUint64(&atomicRemovedLocalFilesSize)
 
 		log.Info("-----")
 		log.WithField("reclaimed_space", humanize.IBytes(removedLocalFilesSize)).
 			Infof("Removed orphans: %d files, %d folders and %d failures",
 				removedLocalFiles, removedLocalFolders, removeFailures)
 	},
+}
+
+// processInBatches processes a map in batches using a worker pool
+func processInBatches(items map[string]int64, maxWorkers int, batchSize int,
+	processFn func(string, int64), wg *sync.WaitGroup) {
+
+	workerSem := make(chan struct{}, maxWorkers)
+
+	i := 0
+	batch := make([]struct {
+		key string
+		val int64
+	}, 0, batchSize)
+
+	for k, v := range items {
+		batch = append(batch, struct {
+			key string
+			val int64
+		}{k, v})
+		i++
+
+		// when batch is full or all items are accumulated, process the batch
+		if i == batchSize || i == len(items) {
+			for _, item := range batch {
+				wg.Add(1)
+
+				workerSem <- struct{}{}
+
+				go func(path string, size int64) {
+					defer func() {
+						<-workerSem
+					}()
+
+					processFn(path, size)
+				}(item.key, item.val)
+			}
+
+			batch = batch[:0]
+		}
+	}
 }
 
 func init() {
