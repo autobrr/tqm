@@ -184,6 +184,9 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 		log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
 			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
 
+		// update the hardlink map before removing the torrent files
+		hfm.RemoveByTorrent(*t)
+
 		if !flagDryRun {
 			// do remove
 			removed, err := c.RemoveTorrent(t.Hash, true)
@@ -221,7 +224,6 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 
 		// remove the torrent from the torrent maps
 		tfm.Remove(*t)
-		hfm.RemoveByTorrent(*t)
 		delete(torrents, h)
 	}
 
