@@ -106,6 +106,15 @@ var retagCmd = &cobra.Command{
 				log.Infof("Retrieved free-space for %q: %v (%.2f GB)", *clientFreeSpacePath,
 					humanize.IBytes(uint64(space)), ct.GetFreeSpace())
 			}
+		} else if *clientType == "qbittorrent" {
+			// For qBittorrent, we can get free space without a path
+			space, err := ct.GetCurrentFreeSpace("")
+			if err != nil {
+				log.WithError(err).Warn("Failed retrieving free-space")
+			} else {
+				log.Infof("Retrieved free-space: %v (%.2f GB)",
+					humanize.IBytes(uint64(space)), ct.GetFreeSpace())
+			}
 		}
 
 		// retrieve torrents

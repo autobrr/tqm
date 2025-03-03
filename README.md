@@ -18,7 +18,7 @@ clients:
     enabled: true
     filter: default
     download_path: /mnt/local/downloads/torrents/deluge
-    free_space_path: /mnt/local/downloads/torrents/deluge
+    free_space_path: /mnt/local/downloads/torrents/deluge  # Required for Deluge with path that exists on server
     download_path_mapping:
       /downloads/torrents/deluge: /mnt/local/downloads/torrents/deluge
     host: localhost
@@ -29,6 +29,7 @@ clients:
     v2: true
   qbt:
     download_path: /mnt/local/downloads/torrents/qbittorrent/completed
+    # free_space_path is not needed for qBittorrent as it checks globally via API
     download_path_mapping:
       /downloads/torrents/qbittorrent/completed: /mnt/local/downloads/torrents/qbittorrent/completed
     enabled: true
@@ -303,14 +304,40 @@ filters:
 
 ## Notes
 
-`FreeSpaceSet` and `FreeSpaceGB()` are currently only supported for the following clients (when `free_space_path` is set):
+### Free Space Tracking
 
-- Deluge
-- qBittorrent
+`FreeSpaceSet` and `FreeSpaceGB()` are available for tracking free disk space in your filters. These allow you to make decisions based on available disk space and track space changes as torrents are removed.
 
-`FreeSpaceGB()` will only increase as torrents are hard-removed.
+#### Availability
 
-This only works with one disk referenced by `free_space_path` and will not account for torrents being on **different disks**.
+These features are currently only supported for:
+
+- **Deluge**: Requires `free_space_path` to be set to a valid path on the server
+- **qBittorrent**: Works without `free_space_path` as it retrieves global free space information via API
+
+#### Configuration Differences
+
+**IMPORTANT**: How the `free_space_path` setting works depends on your client type:
+
+- For **Deluge**, `free_space_path` must be set and point to a valid path on your server
+- For **qBittorrent**, the `free_space_path` parameter is not needed and can be omitted
+
+#### How It Works
+
+1. Free space information is retrieved when a command is run
+2. If successful, `FreeSpaceSet` becomes `true` and `FreeSpaceGB()` will return the available space in gigabytes
+3. As torrents are removed, `FreeSpaceGB()` will automatically increase by the size of the removed torrent
+
+#### Using in Filters
+
+You can use these values in your filter expressions:
+
+```yaml
+filters:
+  default:
+    remove:
+      - FreeSpaceSet == true && FreeSpaceGB() < 100 && SeedingDays > 30
+```
 
 ## regexp2 Pattern Matching
 
