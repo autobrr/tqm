@@ -43,6 +43,8 @@ clients:
     # enableAutoTmmAfterRelabel: true
 filters:
   default:
+    # if true, data will be deleted from disk when removing torrents (default: true)
+    delete_data: true
     ignore:
       # general
       - IsTrackerDown()

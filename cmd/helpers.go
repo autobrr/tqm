@@ -162,7 +162,7 @@ func relabelEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map
 
 // remove torrents that meet remove filters
 func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[string]config.Torrent,
-	tfm *torrentfilemap.TorrentFileMap, hfm hardlinkfilemap.HardlinkFileMapI) error {
+	tfm *torrentfilemap.TorrentFileMap, hfm hardlinkfilemap.HardlinkFileMapI, filter *config.FilterConfiguration) error {
 	// vars
 	ignoredTorrents := 0
 	hardRemoveTorrents := 0
@@ -185,8 +185,13 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
 
 		if !flagDryRun {
+			deleteData := true
+			if filter != nil {
+				deleteData = filter.DeleteData
+			}
+
 			// do remove
-			removed, err := c.RemoveTorrent(t.Hash, true)
+			removed, err := c.RemoveTorrent(t.Hash, deleteData)
 			if err != nil {
 				log.WithError(err).Fatalf("Failed removing torrent: %+v", t)
 				// dont remove from torrents file map, but prevent further operations on this torrent
@@ -200,7 +205,11 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 				errorRemoveTorrents++
 				return
 			} else {
-				log.Info("Removed")
+				if deleteData {
+					log.Info("Removed with data")
+				} else {
+					log.Info("Removed (kept data on disk)")
+				}
 
 				// increase free space
 				if t.FreeSpaceSet {
