@@ -44,7 +44,7 @@ clients:
 filters:
   default:
     # if true, data will be deleted from disk when removing torrents (default: true)
-    #delete_data: true
+    #delete_data: false
     ignore:
       # general
       - IsTrackerDown()
