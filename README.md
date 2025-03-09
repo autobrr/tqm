@@ -310,15 +310,6 @@ filters:
 
 #### Availability
 
-These features are currently only supported for:
-
-- **Deluge**: Requires `free_space_path` to be set to a valid path on the server
-- **qBittorrent**: Works without `free_space_path` as it retrieves global free space information via API
-
-#### Configuration Differences
-
-**IMPORTANT**: How the `free_space_path` setting works depends on your client type:
-
 - For **Deluge**, `free_space_path` must be set and point to a valid path on your server
 - For **qBittorrent**, the `free_space_path` parameter is not needed and can be omitted
 
@@ -326,7 +317,6 @@ These features are currently only supported for:
 
 1. Free space information is retrieved when a command is run
 2. If successful, `FreeSpaceSet` becomes `true` and `FreeSpaceGB()` will return the available space in gigabytes
-3. As torrents are removed, `FreeSpaceGB()` will automatically increase by the size of the removed torrent
 
 #### Using in Filters
 
