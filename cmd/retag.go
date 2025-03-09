@@ -101,7 +101,7 @@ var retagCmd = &cobra.Command{
 		if clientFreeSpacePath != nil {
 			space, err := ct.GetCurrentFreeSpace(*clientFreeSpacePath)
 			if err != nil {
-				log.WithError(err).Warnf("Failed retrieving free-space for: %q", *clientFreeSpacePath)
+				log.WithError(err).Errorf("Failed retrieving free-space for: %q", *clientFreeSpacePath)
 			} else {
 				log.Infof("Retrieved free-space for %q: %v (%.2f GB)", *clientFreeSpacePath,
 					humanize.IBytes(uint64(space)), ct.GetFreeSpace())
@@ -110,7 +110,7 @@ var retagCmd = &cobra.Command{
 			// For qBittorrent, we can get free space without a path
 			space, err := ct.GetCurrentFreeSpace("")
 			if err != nil {
-				log.WithError(err).Warn("Failed retrieving free-space")
+				log.WithError(err).Error("Failed retrieving free-space")
 			} else {
 				log.Infof("Retrieved free-space: %v (%.2f GB)",
 					humanize.IBytes(uint64(space)), ct.GetFreeSpace())
