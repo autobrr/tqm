@@ -228,7 +228,7 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 	}
 
 	// iterate torrents
-	canidates := make(map[string]config.Torrent)
+	candidates := make(map[string]config.Torrent)
 	for h, t := range torrents {
 		// should we ignore this torrent?
 		ignore, err := c.ShouldIgnore(&t)
@@ -263,14 +263,14 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 		// are the files unique and eligible for a hard deletion (remove data)
 		if !tfm.IsUnique(t) {
 			log.Warnf("Skipping non unique torrent | Name: %s / Label: %s / Tags: %s / Tracker: %s", t.Name, t.Label, strings.Join(t.Tags, ", "), t.TrackerName)
-			canidates[h] = t
+			candidates[h] = t
 			continue
 		}
 
 		// are the files not hardlinked to other torrents
 		if !hfm.IsTorrentUnique(t) {
 			log.Warnf("Skipping non unique torrent (hardlinked) | Name: %s / Label: %s / Tags: %s / Tracker: %s", t.Name, t.Label, strings.Join(t.Tags, ", "), t.TrackerName)
-			canidates[h] = t
+			candidates[h] = t
 			continue
 		}
 
@@ -278,20 +278,20 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 	}
 
 	log.Info("========================================")
-	log.Infof("Finished initial check, %d cross-seeded torrents are canidates for removal", len(canidates))
+	log.Infof("Finished initial check, %d cross-seeded torrents are candidates for removal", len(candidates))
 	log.Info("========================================")
 
-	// imagine we removed all canidates,
-	// now lets check if the canidates still have more versions
+	// imagine we removed all candidates,
+	// now lets check if the candidates still have more versions
 	// or can be safely removed
-	for _, t := range canidates {
+	for _, t := range candidates {
 		tfm.Remove(t)
 		hfm.RemoveByTorrent(t)
 	}
 
 	// check again for unique torrents
-	removedCanidates := 0
-	for h, t := range canidates {
+	removedCandidates := 0
+	for h, t := range candidates {
 		noInstances := tfm.NoInstances(t) && hfm.NoInstances(t)
 
 		if !noInstances {
@@ -300,14 +300,14 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 		}
 
 		removeTorrent(h, &t)
-		removedCanidates++
+		removedCandidates++
 	}
 
 	// show result
 	log.Info("-----")
 	log.Infof("Ignored torrents: %d", ignoredTorrents)
 	log.WithField("reclaimed_space", humanize.IBytes(uint64(removedTorrentBytes))).
-		Infof("Removed torrents: %d initially removed, %d cross-seeded torrents were canidates for removal, only %d of them removed and %d failures",
-			hardRemoveTorrents-removedCanidates, len(canidates), removedCanidates, errorRemoveTorrents)
+		Infof("Removed torrents: %d initially removed, %d cross-seeded torrents were candidates for removal, only %d of them removed and %d failures",
+			hardRemoveTorrents-removedCandidates, len(candidates), removedCandidates, errorRemoveTorrents)
 	return nil
 }
