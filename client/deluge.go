@@ -249,6 +249,10 @@ func (c *Deluge) SetTorrentLabel(hash string, label string, hardlink bool) error
 }
 
 func (c *Deluge) GetCurrentFreeSpace(path string) (int64, error) {
+	if path == "" {
+		return 0, fmt.Errorf("free_space_path is not set for deluge")
+	}
+
 	// get free disk space
 	space, err := c.client.GetFreeSpace(path)
 	if err != nil {
