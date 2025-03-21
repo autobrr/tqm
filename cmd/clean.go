@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/autobrr/tqm/client"
@@ -89,13 +91,34 @@ var cleanCmd = &cobra.Command{
 		}
 
 		// get free disk space (can/will be used by filters)
-		if clientFreeSpacePath != nil {
-			space, err := c.GetCurrentFreeSpace(*clientFreeSpacePath)
+		switch *clientType {
+		case "qbittorrent":
+			// For qBittorrent, we can get free space without a path
+			space, err := c.GetCurrentFreeSpace("")
 			if err != nil {
-				log.WithError(err).Warnf("Failed retrieving free-space for: %q", *clientFreeSpacePath)
+				log.WithError(err).Error("Failed retrieving free-space")
 			} else {
-				log.Infof("Retrieved free-space for %q: %v (%.2f GB)", *clientFreeSpacePath,
+				log.Infof("Retrieved free-space: %v (%.2f GB)",
 					humanize.IBytes(uint64(space)), c.GetFreeSpace())
+			}
+
+		case "deluge":
+			if clientFreeSpacePath != nil {
+				space, err := c.GetCurrentFreeSpace(*clientFreeSpacePath)
+				if err != nil {
+					log.WithError(err).Errorf("Failed retrieving free-space for: %q", *clientFreeSpacePath)
+					os.Exit(1)
+				} else {
+					log.Infof("Retrieved free-space for %q: %v (%.2f GB)", *clientFreeSpacePath,
+						humanize.IBytes(uint64(space)), c.GetFreeSpace())
+				}
+			} else {
+				filterUsesFreespace := checkFilterUsesFreespace(clientFilter)
+
+				if filterUsesFreespace {
+					log.Error("Deluge requires free_space_path to be configured in order to retrieve free space information")
+					os.Exit(1)
+				}
 			}
 		}
 
@@ -157,4 +180,44 @@ func init() {
 	rootCmd.AddCommand(cleanCmd)
 
 	cleanCmd.Flags().StringVar(&flagFilterName, "filter", "", "Filter to use instead of client")
+}
+
+// checkFilterUsesFreespace checks if any filter conditions use FreeSpaceGB or FreeSpaceSet
+func checkFilterUsesFreespace(filter *config.FilterConfiguration) bool {
+	// Helper function to check a single expression for free space usage
+	checkExpression := func(expr string) bool {
+		return strings.Contains(expr, "FreeSpaceGB") || strings.Contains(expr, "FreeSpaceSet")
+	}
+
+	// Check all filter conditions
+	for _, expr := range filter.Ignore {
+		if checkExpression(expr) {
+			return true
+		}
+	}
+	for _, expr := range filter.Remove {
+		if checkExpression(expr) {
+			return true
+		}
+	}
+
+	// Check label expressions
+	for _, label := range filter.Label {
+		for _, expr := range label.Update {
+			if checkExpression(expr) {
+				return true
+			}
+		}
+	}
+
+	// Check tag expressions
+	for _, tag := range filter.Tag {
+		for _, expr := range tag.Update {
+			if checkExpression(expr) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
