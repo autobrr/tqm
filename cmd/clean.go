@@ -170,7 +170,7 @@ var cleanCmd = &cobra.Command{
 		}
 
 		// remove torrents that are not ignored and match remove criteria
-		if err := removeEligibleTorrents(log, c, torrents, tfm, hfm); err != nil {
+		if err := removeEligibleTorrents(log, c, torrents, tfm, hfm, clientFilter); err != nil {
 			log.WithError(err).Fatal("Failed removing eligible torrents...")
 		}
 	},

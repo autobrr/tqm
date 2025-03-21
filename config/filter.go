@@ -4,6 +4,7 @@ type FilterConfiguration struct {
 	MapHardlinksFor []string
 	Ignore          []string
 	Remove          []string
+	DeleteData      bool
 	Label           []struct {
 		Name   string
 		Update []string
