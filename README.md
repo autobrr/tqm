@@ -150,6 +150,51 @@ Currently implements:
 
 **Note for BTN users**: When first using the BTN API, you may need to authorize your IP address. Check your BTN notices/messages for the authorization request.
 
+## Optional - Tracker Error Configuration
+
+```yaml
+# Tracker error status configuration
+tracker_errors:
+  # Trackers to ignore when checking status messages
+  ignored_trackers:
+    - "example.org"
+  
+  # Per-tracker status patterns to ignore
+  tracker_ignored_statuses:
+    # For torrentleech, ignore "404 not found" messages as these can happen when the site is down
+    "torrentleech.org": 
+      - "not found"
+  
+  # Custom unregistered status patterns (appends to defaults)
+  unregistered_statuses:
+    - "torrent deleted due to inactivity"
+  
+  # Custom tracker down status patterns (appends to defaults)
+  tracker_down_statuses:
+    - "database maintenance"
+```
+
+This configuration section allows you to customize how tqm handles tracker status messages, giving you more control over which torrents get removed when. This is particularly useful for:
+
+1. **Preventing false removals**: Some trackers may return generic error messages (like "404 Not Found") that could be falsely identified as an unregistered torrent when the tracker is just temporarily down
+2. **Handling tracker-specific oddities**: Different trackers may use non-standard error messages that need special handling
+3. **Fine-tuning automation**: Allows you to make tqm more or less aggressive in its torrent management
+
+### Configuration Options
+
+- **ignored_trackers**: A list of tracker domains to completely ignore status checking on
+- **tracker_ignored_statuses**: A map of tracker domains to lists of status messages that should be ignored for that specific tracker
+- **unregistered_statuses**: Add your own custom patterns for detecting unregistered torrents
+- **tracker_down_statuses**: Add your own custom patterns for detecting tracker down states
+
+### Behavior
+
+When checking tracker status:
+- First, tqm checks if the tracker or specific status message should be ignored based on your configuration
+- Then it checks if the tracker appears to be down using the tracker down patterns
+- Only if the tracker is up and the status is not ignored will it check for unregistered status
+- This prevents false removals when trackers are having temporary issues
+
 ## Filtering Language Definition
 
 The language definition used in the configuration filters is available [here](https://github.com/antonmedv/expr/blob/586b86b462d22497d442adbc924bfb701db3075d/docs/Language-Definition.md)

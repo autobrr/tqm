@@ -11,8 +11,21 @@ import (
 	"github.com/autobrr/tqm/tracker"
 )
 
-var (
-	unregisteredStatuses = []string{
+// TrackerErrorConfig represents configuration for tracker error status messages
+type TrackerErrorConfig struct {
+	// List of status patterns indicating a torrent is unregistered
+	UnregisteredStatuses []string `yaml:"unregistered_statuses"`
+	// List of status patterns indicating a tracker is down
+	TrackerDownStatuses []string `yaml:"tracker_down_statuses"`
+	// Whether to ignore errors for specific trackers
+	IgnoredTrackers []string `yaml:"ignored_trackers"`
+	// Map of tracker hosts to lists of ignored status patterns
+	TrackerIgnoredStatuses map[string][]string `yaml:"tracker_ignored_statuses"`
+}
+
+// DefaultTrackerErrorConfig provides the default configuration
+var DefaultTrackerErrorConfig = TrackerErrorConfig{
+	UnregisteredStatuses: []string{
 		"complete season uploaded",
 		"dead",
 		"dupe",
@@ -45,9 +58,8 @@ var (
 		"unregistered",
 		"upgraded",
 		"uploaded",
-	}
-
-	trackerDownStatuses = []string{
+	},
+	TrackerDownStatuses: []string{
 		// libtorrent HTTP status messages
 		// https://github.com/arvidn/libtorrent/blob/RC_2_0/src/error_code.cpp#L320-L339
 		// https://github.com/arvidn/libtorrent/blob/RC_1_2/src/error_code.cpp#L298-L317
@@ -86,7 +98,18 @@ var (
 		"unresolvable",
 		"host not found",
 		"offline",
-	}
+	},
+	TrackerIgnoredStatuses: map[string][]string{
+		//"torrentleech.org": {"not found"},
+	},
+}
+
+var (
+	// These global variables are kept for backward compatibility
+	unregisteredStatuses = DefaultTrackerErrorConfig.UnregisteredStatuses
+	trackerDownStatuses  = DefaultTrackerErrorConfig.TrackerDownStatuses
+
+	trackerLog = logger.GetLogger("tracker")
 )
 
 type Torrent struct {
@@ -127,14 +150,50 @@ type Torrent struct {
 	regexPattern *regex.Pattern
 }
 
+// IsTrackerDown checks if tracker status indicates the tracker is down
 func (t *Torrent) IsTrackerDown() bool {
 	if t.TrackerStatus == "" {
 		return false
 	}
 
+	// Get the global tracker error config
+	trackerErrorConfig := DefaultTrackerErrorConfig
+	if Config != nil && Config.TrackerErrorConfig != nil {
+		trackerErrorConfig = *Config.TrackerErrorConfig
+	}
+
+	// Check if this tracker should ignore specific status messages
+	if trackerErrorConfig.TrackerIgnoredStatuses != nil {
+		if ignoredStatuses, ok := trackerErrorConfig.TrackerIgnoredStatuses[t.TrackerName]; ok {
+			status := strings.ToLower(t.TrackerStatus)
+			for _, v := range ignoredStatuses {
+				if strings.Contains(status, strings.ToLower(v)) {
+					trackerLog.Debugf("[%s] Ignoring status %q for tracker %s (matched ignored pattern %q)",
+						t.Hash[:8], t.TrackerStatus, t.TrackerName, v)
+					return false
+				}
+			}
+		}
+	}
+
+	// Check if this tracker is in the ignored trackers list
+	if sliceutils.StringSliceContains(trackerErrorConfig.IgnoredTrackers, t.TrackerName, true) {
+		trackerLog.Debugf("[%s] Ignoring all tracker status checks for tracker %s (in ignored_trackers list)",
+			t.Hash[:8], t.TrackerName)
+		return false
+	}
+
+	// Check if the status matches any tracker down patterns
+	downStatuses := trackerErrorConfig.TrackerDownStatuses
+	if len(downStatuses) == 0 {
+		downStatuses = trackerDownStatuses // Fall back to the global var for backward compatibility
+	}
+
 	status := strings.ToLower(t.TrackerStatus)
-	for _, v := range trackerDownStatuses {
+	for _, v := range downStatuses {
 		if strings.Contains(status, v) {
+			trackerLog.Debugf("[%s] Tracker %s appears to be down: status %q matched pattern %q",
+				t.Hash[:8], t.TrackerName, t.TrackerStatus, v)
 			return true
 		}
 	}
@@ -142,8 +201,11 @@ func (t *Torrent) IsTrackerDown() bool {
 	return false
 }
 
+// IsUnregistered checks if tracker status indicates the torrent is unregistered
 func (t *Torrent) IsUnregistered() bool {
 	if t.IsTrackerDown() {
+		trackerLog.Debugf("[%s] Skipping unregistered check for %s because tracker appears to be down",
+			t.Hash[:8], t.TrackerName)
 		return false
 	}
 
@@ -151,11 +213,46 @@ func (t *Torrent) IsUnregistered() bool {
 		return false
 	}
 
+	// Get the global tracker error config
+	trackerErrorConfig := DefaultTrackerErrorConfig
+	if Config != nil && Config.TrackerErrorConfig != nil {
+		trackerErrorConfig = *Config.TrackerErrorConfig
+	}
+
+	// Check if this tracker is in the ignored trackers list
+	if sliceutils.StringSliceContains(trackerErrorConfig.IgnoredTrackers, t.TrackerName, true) {
+		trackerLog.Debugf("[%s] Ignoring all tracker status checks for tracker %s (in ignored_trackers list)",
+			t.Hash[:8], t.TrackerName)
+		return false
+	}
+
+	// Check if this tracker should ignore specific status messages
+	if trackerErrorConfig.TrackerIgnoredStatuses != nil {
+		if ignoredStatuses, ok := trackerErrorConfig.TrackerIgnoredStatuses[t.TrackerName]; ok {
+			status := strings.ToLower(t.TrackerStatus)
+			for _, v := range ignoredStatuses {
+				if strings.Contains(status, strings.ToLower(v)) {
+					trackerLog.Debugf("[%s] Ignoring status %q for tracker %s (matched ignored pattern %q)",
+						t.Hash[:8], t.TrackerStatus, t.TrackerName, v)
+					return false
+				}
+			}
+		}
+	}
+
+	// check unregistered statuses from config
+	unregStatuses := trackerErrorConfig.UnregisteredStatuses
+	if len(unregStatuses) == 0 {
+		unregStatuses = unregisteredStatuses // Fall back to the global var for backward compatibility
+	}
+
 	// check hardcoded unregistered statuses
 	status := strings.ToLower(t.TrackerStatus)
-	for _, v := range unregisteredStatuses {
+	for _, v := range unregStatuses {
 		// unregistered tracker status found?
 		if strings.Contains(status, v) {
+			trackerLog.Debugf("[%s] Torrent appears to be unregistered on %s: status %q matched pattern %q",
+				t.Hash[:8], t.TrackerName, t.TrackerStatus, v)
 			return true
 		}
 	}
@@ -176,7 +273,14 @@ func (t *Torrent) IsUnregistered() bool {
 		}
 
 		if err, ur := tr.IsUnregistered(tt); err == nil {
+			if ur {
+				trackerLog.Debugf("[%s] Torrent confirmed unregistered via %s API",
+					t.Hash[:8], t.TrackerName)
+			}
 			return ur
+		} else {
+			trackerLog.Debugf("[%s] Error checking unregistered status via %s API: %v",
+				t.Hash[:8], t.TrackerName, err)
 		}
 	}
 

@@ -19,6 +19,7 @@ type Configuration struct {
 	Filters                    map[string]FilterConfiguration
 	Trackers                   tracker.Config
 	BypassIgnoreIfUnregistered bool
+	TrackerErrorConfig         *TrackerErrorConfig `yaml:"tracker_errors"`
 }
 
 /* Vars */
