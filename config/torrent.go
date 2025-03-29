@@ -48,10 +48,10 @@ var (
 		"uploaded",
 	}
 
-	// effectiveUnregisteredStatuses holds the list of statuses to use for checks.
-	// It's set by SetEffectiveUnregisteredStatuses based on user config or defaults.
-	// All statuses in this list will be lowercased during initialization.
-	effectiveUnregisteredStatuses = map[string]struct{}{}
+	// effectiveUnregisteredStatuses stores per-tracker overrides. Key is lowercased tracker name.
+	effectiveUnregisteredStatuses = map[string]map[string]struct{}{}
+	// defaultUnregisteredStatusesMap is a pre-processed map of the defaults for faster lookups.
+	defaultUnregisteredStatusesMap = map[string]struct{}{}
 
 	trackerDownStatuses = []string{
 		// libtorrent HTTP status messages
@@ -148,22 +148,33 @@ func (t *Torrent) IsTrackerDown() bool {
 	return false
 }
 
-// SetEffectiveUnregisteredStatuses sets the statuses used for IsUnregistered checks.
-// If customStatuses is nil or empty, it defaults to defaultUnregisteredStatuses.
-// The statuses are stored lowercased for case-insensitive matching.
-func SetEffectiveUnregisteredStatuses(customStatuses []string) {
-	statusesToUse := defaultUnregisteredStatuses
-	if len(customStatuses) > 0 {
-		statusesToUse = customStatuses
-		logger.GetLogger("config").Debugf("Using custom unregistered statuses from config: %d", len(customStatuses))
-	} else {
-		logger.GetLogger("config").Debug("Using default unregistered statuses")
-	}
+// Initialize prepares the default status map and processes per-tracker overrides.
+// It should be called once after configuration is loaded.
+func InitializeTrackerStatuses(perTrackerOverrides map[string][]string) {
+	log := logger.GetLogger("config")
 
-	// Reset and populate the effective map, storing lowercased versions.
-	effectiveUnregisteredStatuses = make(map[string]struct{}, len(statusesToUse))
-	for _, status := range statusesToUse {
-		effectiveUnregisteredStatuses[strings.ToLower(strings.TrimSpace(status))] = struct{}{}
+	// Prepare the default map (lowercase).
+	defaultUnregisteredStatusesMap = make(map[string]struct{}, len(defaultUnregisteredStatuses))
+	for _, status := range defaultUnregisteredStatuses {
+		defaultUnregisteredStatusesMap[strings.ToLower(strings.TrimSpace(status))] = struct{}{}
+	}
+	log.Debugf("Initialized default unregistered statuses: %d entries", len(defaultUnregisteredStatusesMap))
+
+	// Process per-tracker overrides.
+	effectiveUnregisteredStatuses = make(map[string]map[string]struct{}, len(perTrackerOverrides))
+	if len(perTrackerOverrides) > 0 {
+		log.Debugf("Processing %d per-tracker unregistered status overrides", len(perTrackerOverrides))
+		for tracker, statuses := range perTrackerOverrides {
+			trackerLower := strings.ToLower(strings.TrimSpace(tracker))
+			statusMap := make(map[string]struct{}, len(statuses))
+			for _, status := range statuses {
+				statusMap[strings.ToLower(strings.TrimSpace(status))] = struct{}{}
+			}
+			effectiveUnregisteredStatuses[trackerLower] = statusMap
+			log.Debugf("Set %d custom unregistered statuses for tracker: %s", len(statusMap), tracker)
+		}
+	} else {
+		log.Debug("No per-tracker unregistered status overrides provided, using defaults for all.")
 	}
 }
 
@@ -176,9 +187,18 @@ func (t *Torrent) IsUnregistered() bool {
 		return false
 	}
 
-	// check configured unregistered statuses using exact, case-insensitive match
+	// check configured unregistered statuses using exact, case-insensitive match.
+	// Use per-tracker list if available, otherwise use defaults.
 	statusLower := strings.ToLower(t.TrackerStatus)
-	if _, exists := effectiveUnregisteredStatuses[statusLower]; exists {
+	trackerLower := strings.ToLower(t.TrackerName)
+
+	statusMapToCheck := defaultUnregisteredStatusesMap // Default to the global defaults
+	if specificMap, ok := effectiveUnregisteredStatuses[trackerLower]; ok {
+		statusMapToCheck = specificMap // Override with tracker-specific map if it exists
+	}
+
+	if _, exists := statusMapToCheck[statusLower]; exists {
+		// Found in the applicable status list (either specific or default)
 		return true
 	}
 

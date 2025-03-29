@@ -223,32 +223,34 @@ When using both `IsUnregistered()` and `IsTrackerDown()` in filters:
 
 Note: While `IsUnregistered()` automatically handles tracker down states, you may still want to explicitly check for `IsTrackerDown()` in your ignore filters to prevent any actions when tracker status is uncertain.
 
-#### Customizing Unregistered Statuses
+#### Customizing Unregistered Statuses (Per-Tracker)
 
-By default, `IsUnregistered()` checks against a built-in list of common status messages that indicate a torrent is no longer registered with the tracker (e.g., "torrent not found", "unregistered torrent").
+By default, `IsUnregistered()` checks against a built-in list of common status messages that indicate a torrent is no longer registered with the tracker (e.g., `"torrent not found"`, `"unregistered torrent"`).
 
-You can override this default list by defining your own list in the configuration file under the `tracker_errors` section. This allows you to tailor the detection to specific messages used by your trackers.
+You can override this default list **on a per-tracker basis** by defining specific lists in the configuration file under the `tracker_errors` section. This allows you to tailor the detection to the unique messages used by different trackers.
 
 Example `config.yaml` snippet:
 
 ```yaml
 tracker_errors:
-  # Override the default list of unregistered statuses.
-  # If this list is provided, ONLY these statuses (and statuses returned by tracker APIs)
-  # will be considered unregistered. Matching is exact and case-insensitive.
-  # If this section is commented out or empty, the internal default list will be used.
-  override_unregistered_statuses:
-     - "torrent not registered"
-     - "Unknown torrent"
-     - "info_hash not found"
-     - "Torrent Does Not Exist"
+  # Override the default list of unregistered statuses on a per-tracker basis.
+  # If a tracker is listed here, ONLY the statuses provided for it will be used for matching against its torrents.
+  # If a tracker is NOT listed, the internal default list will be used for its torrents.
+  # Matching is exact and case-insensitive. Tracker names are also case-insensitive.
+  per_tracker_unregistered_statuses:
+    "passthepopcorn.me"
+      - "torrent not found"
+      - "unregistered torrent"
+    "torrentleech.org":
+      - "unregistered torrent"
 ```
 
 **Key Points:**
 
-- If `override_unregistered_statuses` is defined, the built-in list is ignored, and only your provided statuses (plus results from tracker APIs, if configured) are used for matching.
-- Matching against this list is **exact** and **case-insensitive**. `"Unknown torrent"` will match `Unknown torrent`, `unknown torrent`, etc., but it will *not* match `"Unknown torrent detected"`.
-- If the `tracker_errors.override_unregistered_statuses` section is not present or is empty in your `config.yaml`, the default built-in list will be used.
+- If a specific tracker is defined under `per_tracker_unregistered_statuses`, the list provided for it **replaces** the default list for torrents associated with that tracker.
+- If a tracker is *not* listed under `per_tracker_unregistered_statuses`, the default built-in list of statuses will be used for its torrents.
+- Matching against these lists is **exact** and **case-insensitive** (both for the status messages and the tracker names).
+- The check against tracker APIs (if configured for a specific tracker, e.g., PTP, BTN) still happens regardless of the status message matching.
 
 Example:
 
