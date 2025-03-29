@@ -18,7 +18,7 @@ type TrackerErrorsConfig struct {
 	// PerTrackerUnregisteredStatuses allows overriding the default list of unregistered statuses
 	// on a per-tracker basis. The key is the tracker name (case-insensitive),
 	// and the value is a list of status strings (case-insensitive, exact match).
-	PerTrackerUnregisteredStatuses map[string][]string `yaml:"per_tracker_unregistered_statuses"`
+	PerTrackerUnregisteredStatuses map[string][]string `yaml:"per_tracker_unregistered_statuses" koanf:"per_tracker_unregistered_statuses"`
 }
 
 type Configuration struct {
@@ -26,7 +26,7 @@ type Configuration struct {
 	Filters                    map[string]FilterConfiguration
 	Trackers                   tracker.Config
 	BypassIgnoreIfUnregistered bool
-	TrackerErrors              TrackerErrorsConfig `yaml:"tracker_errors"`
+	TrackerErrors              TrackerErrorsConfig `yaml:"tracker_errors" koanf:"tracker_errors"`
 }
 
 /* Vars */
@@ -66,6 +66,10 @@ func Init(configFilePath string) error {
 		return fmt.Errorf("unmarshal: %w", err)
 	}
 
+	// DEBUG: Log the parsed tracker errors struct
+	log.Debugf("Parsed TrackerErrors config: %+v", Config.TrackerErrors)
+
+	// Initialize tracker status configurations after loading
 	InitializeTrackerStatuses(Config.TrackerErrors.PerTrackerUnregisteredStatuses)
 
 	return nil

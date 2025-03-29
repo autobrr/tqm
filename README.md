@@ -234,11 +234,11 @@ Example `config.yaml` snippet:
 ```yaml
 tracker_errors:
   # Override the default list of unregistered statuses on a per-tracker basis.
-  # If a tracker is listed here, ONLY the statuses provided for it will be used for matching against its torrents.
+  # If a tracker is listed here, ONLY the statuses provided for it will be used for matching against its torrents (and statuses returned by tracker APIs).
   # If a tracker is NOT listed, the internal default list will be used for its torrents.
   # Matching is exact and case-insensitive. Tracker names are also case-insensitive.
   per_tracker_unregistered_statuses:
-    "passthepopcorn.me"
+    "passthepopcorn.me":
       - "torrent not found"
       - "unregistered torrent"
     "torrentleech.org":
