@@ -66,10 +66,8 @@ func Init(configFilePath string) error {
 		return fmt.Errorf("unmarshal: %w", err)
 	}
 
-	// DEBUG: Log the parsed tracker errors struct
 	log.Debugf("Parsed TrackerErrors config: %+v", Config.TrackerErrors)
 
-	// Initialize tracker status configurations after loading
 	InitializeTrackerStatuses(Config.TrackerErrors.PerTrackerUnregisteredStatuses)
 
 	return nil
