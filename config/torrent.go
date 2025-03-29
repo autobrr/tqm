@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	unregisteredStatuses = []string{
+	// defaultUnregisteredStatuses holds the default list if none is provided in config.
+	defaultUnregisteredStatuses = []string{
 		"complete season uploaded",
 		"dead",
 		"dupe",
@@ -46,6 +47,11 @@ var (
 		"upgraded",
 		"uploaded",
 	}
+
+	// effectiveUnregisteredStatuses holds the list of statuses to use for checks.
+	// It's set by SetEffectiveUnregisteredStatuses based on user config or defaults.
+	// All statuses in this list will be lowercased during initialization.
+	effectiveUnregisteredStatuses = map[string]struct{}{}
 
 	trackerDownStatuses = []string{
 		// libtorrent HTTP status messages
@@ -142,6 +148,25 @@ func (t *Torrent) IsTrackerDown() bool {
 	return false
 }
 
+// SetEffectiveUnregisteredStatuses sets the statuses used for IsUnregistered checks.
+// If customStatuses is nil or empty, it defaults to defaultUnregisteredStatuses.
+// The statuses are stored lowercased for case-insensitive matching.
+func SetEffectiveUnregisteredStatuses(customStatuses []string) {
+	statusesToUse := defaultUnregisteredStatuses
+	if len(customStatuses) > 0 {
+		statusesToUse = customStatuses
+		logger.GetLogger("config").Debugf("Using custom unregistered statuses from config: %d", len(customStatuses))
+	} else {
+		logger.GetLogger("config").Debug("Using default unregistered statuses")
+	}
+
+	// Reset and populate the effective map, storing lowercased versions.
+	effectiveUnregisteredStatuses = make(map[string]struct{}, len(statusesToUse))
+	for _, status := range statusesToUse {
+		effectiveUnregisteredStatuses[strings.ToLower(strings.TrimSpace(status))] = struct{}{}
+	}
+}
+
 func (t *Torrent) IsUnregistered() bool {
 	if t.IsTrackerDown() {
 		return false
@@ -151,13 +176,10 @@ func (t *Torrent) IsUnregistered() bool {
 		return false
 	}
 
-	// check hardcoded unregistered statuses
-	status := strings.ToLower(t.TrackerStatus)
-	for _, v := range unregisteredStatuses {
-		// unregistered tracker status found?
-		if strings.Contains(status, v) {
-			return true
-		}
+	// check configured unregistered statuses using exact, case-insensitive match
+	statusLower := strings.ToLower(t.TrackerStatus)
+	if _, exists := effectiveUnregisteredStatuses[statusLower]; exists {
+		return true
 	}
 
 	// check tracker api (if available)
