@@ -45,11 +45,11 @@ builds:
 
 archives:
   - id: tqm
-    builds:
+    ids:
       - tqm
     format_overrides:
       - goos: windows
-        format: zip
+        formats: ['zip']
 
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
