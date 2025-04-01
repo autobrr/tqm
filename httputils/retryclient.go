@@ -13,7 +13,7 @@ import (
 
 func NewRetryableHttpClient(timeout time.Duration, rl ratelimit.Limiter, log *logrus.Entry) *http.Client {
 	retryClient := retryablehttp.NewClient()
-	retryClient.RetryMax = 10
+	retryClient.RetryMax = 1
 	retryClient.RetryWaitMin = 1 * time.Second
 	retryClient.RetryWaitMax = 10 * time.Second
 	retryClient.RequestLogHook = func(l retryablehttp.Logger, request *http.Request, i int) {
