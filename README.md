@@ -1,8 +1,6 @@
 [![made-with-golang](https://img.shields.io/badge/Made%20with-Golang-blue.svg?style=flat-square)](https://golang.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%203-blue.svg?style=flat-square)](https://github.com/autobrr/tqm/blob/master/LICENSE.md)
-[![Discord](https://img.shields.io/discord/381077432285003776.svg?colorB=177DC1&label=Discord&style=flat-square)](https://discord.io/cloudbox)
 [![Contributing](https://img.shields.io/badge/Contributing-gray.svg?style=flat-square)](CONTRIBUTING.md)
-[![Donate](https://img.shields.io/badge/Donate-gray.svg?style=flat-square)](#donate)
 
 # tqm
 
@@ -45,7 +43,7 @@ clients:
 filters:
   default:
     # if true, data will be deleted from disk when removing torrents (default: true)
-    #delete_data: false
+    #DeleteData: false
     ignore:
       # general
       - IsTrackerDown()

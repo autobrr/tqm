@@ -189,8 +189,8 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 
 		if !flagDryRun {
 			deleteData := true
-			if filter != nil {
-				deleteData = filter.DeleteData
+			if filter != nil && filter.DeleteData != nil {
+				deleteData = *filter.DeleteData
 			}
 
 			// do remove

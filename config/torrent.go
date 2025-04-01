@@ -20,7 +20,7 @@ var (
 		"infohash not found",
 		"internal available",
 		"not exist",
-		"not found",
+		//"not found", // this is causing too many false positives
 		"not registered",
 		"nuked",
 		"pack is available",
@@ -86,6 +86,7 @@ var (
 		"unresolvable",
 		"host not found",
 		"offline",
+		"Your request could not be processed, please try again later",
 	}
 )
 
