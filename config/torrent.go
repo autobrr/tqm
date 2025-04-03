@@ -180,54 +180,51 @@ func InitializeTrackerStatuses(perTrackerOverrides map[string][]string) {
 }
 
 func (t *Torrent) IsUnregistered() bool {
-	if t.IsTrackerDown() {
-		return false
-	}
+    if t.IsTrackerDown() {
+        return false
+    }
 
-	if t.TrackerStatus == "" {
-		return false
-	}
+    if t.TrackerStatus == "" {
+        return false
+    }
 
-	// check configured unregistered statuses
-	statusLower := strings.ToLower(t.TrackerStatus)
-	trackerLower := strings.ToLower(t.TrackerName)
+    // check configured unregistered statuses using exact, case-insensitive match.
+    // Use per-tracker list if available, otherwise use defaults.
+    statusLower := strings.ToLower(t.TrackerStatus)
+    trackerLower := strings.ToLower(t.TrackerName)
 
-	// check tracker-specific statuses first using contains
-	if specificMap, ok := effectiveUnregisteredStatuses[trackerLower]; ok {
-		for status := range specificMap {
-			if strings.Contains(statusLower, status) {
-				return true
-			}
-		}
-		return false // if we have specific statuses but none match, don't fall back to defaults
-	}
+    statusMapToCheck := defaultUnregisteredStatusesMap // Default to the global defaults
+    if specificMap, ok := effectiveUnregisteredStatuses[trackerLower]; ok {
+        statusMapToCheck = specificMap // Override with tracker-specific map if it exists
+    }
 
-	// fall back to default statuses using exact match
-	if _, exists := defaultUnregisteredStatusesMap[statusLower]; exists {
-		return true
-	}
+    for status := range statusMapToCheck {
+        if strings.Contains(statusLower, status) {
+            return true
+        }
+    }
 
-	// check tracker api (if available)
-	if tr := tracker.Get(t.TrackerName); tr != nil {
-		tt := &tracker.Torrent{
-			Hash:            t.Hash,
-			Name:            t.Name,
-			TotalBytes:      t.TotalBytes,
-			DownloadedBytes: t.DownloadedBytes,
-			State:           t.State,
-			Downloaded:      t.Downloaded,
-			Seeding:         t.Seeding,
-			TrackerName:     t.TrackerName,
-			TrackerStatus:   t.State,
-			Comment:         t.Comment,
-		}
+    // check tracker api (if available)
+    if tr := tracker.Get(t.TrackerName); tr != nil {
+        tt := &tracker.Torrent{
+            Hash:            t.Hash,
+            Name:            t.Name,
+            TotalBytes:      t.TotalBytes,
+            DownloadedBytes: t.DownloadedBytes,
+            State:           t.State,
+            Downloaded:      t.Downloaded,
+            Seeding:         t.Seeding,
+            TrackerName:     t.TrackerName,
+            TrackerStatus:   t.State,
+            Comment:         t.Comment,
+        }
 
-		if err, ur := tr.IsUnregistered(tt); err == nil {
-			return ur
-		}
-	}
+        if err, ur := tr.IsUnregistered(tt); err == nil {
+            return ur
+        }
+    }
 
-	return false
+    return false
 }
 
 func (t *Torrent) HasAllTags(tags ...string) bool {
