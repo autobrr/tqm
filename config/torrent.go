@@ -188,18 +188,22 @@ func (t *Torrent) IsUnregistered() bool {
 		return false
 	}
 
-	// check configured unregistered statuses using exact, case-insensitive match.
-	// Use per-tracker list if available, otherwise use defaults.
+	// check configured unregistered statuses
 	statusLower := strings.ToLower(t.TrackerStatus)
 	trackerLower := strings.ToLower(t.TrackerName)
 
-	statusMapToCheck := defaultUnregisteredStatusesMap // Default to the global defaults
+	// check tracker-specific statuses first using contains
 	if specificMap, ok := effectiveUnregisteredStatuses[trackerLower]; ok {
-		statusMapToCheck = specificMap // Override with tracker-specific map if it exists
+		for status := range specificMap {
+			if strings.Contains(statusLower, status) {
+				return true
+			}
+		}
+		return false // if we have specific statuses but none match, don't fall back to defaults
 	}
 
-	if _, exists := statusMapToCheck[statusLower]; exists {
-		// Found in the applicable status list (either specific or default)
+	// fall back to default statuses using exact match
+	if _, exists := defaultUnregisteredStatusesMap[statusLower]; exists {
 		return true
 	}
 
