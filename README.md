@@ -208,6 +208,26 @@ HasMissingFiles() bool // True if any of the torrent's files are missing from di
 Log(n float64) float64    // The natural logarithm function
 ```
 
+### MapHardlinksFor
+
+Within each filter definition in your `config.yaml`, you can optionally include the `MapHardlinksFor` setting. This setting controls when tqm performs the (potentially time-consuming) process of scanning torrent files to identify hardlinks.
+
+```yaml
+filters:
+  default:
+    MapHardlinksFor:
+      - clean
+    ignore:
+      - Downloaded == false
+      - IsTrackerDown()
+      - HardlinkedOutsideClient == true && !isUnregistered() # this makes sure we never remove torrents that has a hardlink (unless they are unregistered)
+```
+
+**Recommendation:**
+
+- Include a command name in `MapHardlinksFor` only if your filter rules for that specific command use the `HardlinkedOutsideClient` field.
+- If none of your filter rules use `HardlinkedOutsideClient`, you can omit the `MapHardlinksFor` setting entirely for better performance.
+
 ### IsUnregistered and IsTrackerDown
 
 When using both `IsUnregistered()` and `IsTrackerDown()` in filters:
@@ -274,6 +294,7 @@ filters:
       - IsTrackerDown()
       - Downloaded == false && !IsUnregistered()
       - SeedingHours < 26 && !IsUnregistered()
+      - HardlinkedOutsideClient == true && !IsUnregistered()
       # permaseed / un-sorted (unless torrent has been deleted)
       - Label startsWith "permaseed-" && !IsUnregistered()
       # Filter based on qbittorrent tags (only qbit at the moment)
@@ -292,6 +313,7 @@ filters:
       - IsTrackerDown()
       - Downloaded == false
       - SeedingHours < 26
+      - HardlinkedOutsideClient == true
       # permaseed / un-sorted (unless torrent has been deleted)
       - Label startsWith "permaseed-"
       # Filter based on qbittorrent tags (only qbit at the moment)
