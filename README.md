@@ -317,7 +317,7 @@ filters:
       # permaseed / un-sorted (unless torrent has been deleted)
       - Label startsWith "permaseed-"
       # Filter based on qbittorrent tags (only qbit at the moment)
-      - '"permaseed" in Tags
+      - "permaseed" in Tags
 ```
 
 ## Supported Clients
