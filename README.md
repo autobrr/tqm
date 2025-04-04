@@ -208,6 +208,26 @@ HasMissingFiles() bool // True if any of the torrent's files are missing from di
 Log(n float64) float64    // The natural logarithm function
 ```
 
+### MapHardlinksFor
+
+Within each filter definition in your `config.yaml`, you can optionally include the `MapHardlinksFor` setting. This setting controls when tqm performs the (potentially time-consuming) process of scanning torrent files to identify hardlinks.
+
+```yaml
+filters:
+  default:
+    MapHardlinksFor:
+      - clean
+    ignore:
+      - Downloaded == false
+      - IsTrackerDown()
+      - HardlinkedOutsideClient == true && !isUnregistered() # this makes sure we never remove torrents that has a hardlink (unless they are unregistered)
+```
+
+**Recommendation:**
+
+- Include a command name in `MapHardlinksFor` only if your filter rules for that specific command use the `HardlinkedOutsideClient` field.
+- If none of your filter rules use `HardlinkedOutsideClient`, you can omit the `MapHardlinksFor` setting entirely for better performance.
+
 ### IsUnregistered and IsTrackerDown
 
 When using both `IsUnregistered()` and `IsTrackerDown()` in filters:
@@ -220,6 +240,35 @@ When using both `IsUnregistered()` and `IsTrackerDown()` in filters:
   - Registered with tracker up (IsUnregistered: false, IsTrackerDown: false)
 
 Note: While `IsUnregistered()` automatically handles tracker down states, you may still want to explicitly check for `IsTrackerDown()` in your ignore filters to prevent any actions when tracker status is uncertain.
+
+#### Customizing Unregistered Statuses (Per-Tracker)
+
+By default, `IsUnregistered()` checks against a built-in list of common status messages that indicate a torrent is no longer registered with the tracker (e.g., `"torrent not found"`, `"unregistered torrent"`).
+
+You can override this default list **on a per-tracker basis** by defining specific lists in the configuration file under the `tracker_errors` section. This allows you to tailor the detection to the unique messages used by different trackers.
+
+Example `config.yaml` snippet:
+
+```yaml
+tracker_errors:
+  # Override the default list of unregistered statuses on a per-tracker basis.
+  # If a tracker is listed here, ONLY the statuses provided for it will be used for matching against its torrents (and statuses returned by tracker APIs).
+  # If a tracker is NOT listed, the internal default list will be used for its torrents.
+  # Matching is exact and case-insensitive. Tracker names are also case-insensitive.
+  per_tracker_unregistered_statuses:
+    "passthepopcorn.me":
+      - "torrent not found"
+      - "unregistered torrent"
+    "torrentleech.org":
+      - "unregistered torrent"
+```
+
+**Key Points:**
+
+- If a specific tracker is defined under `per_tracker_unregistered_statuses`, the list provided for it **replaces** the default list for torrents associated with that tracker.
+- If a tracker is *not* listed under `per_tracker_unregistered_statuses`, the default built-in list of statuses will be used for its torrents.
+- Matching against these lists is **exact** and **case-insensitive** (both for the status messages and the tracker names).
+- The check against tracker APIs (if configured for a specific tracker, e.g., PTP, BTN) still happens regardless of the status message matching.
 
 Example:
 
@@ -245,6 +294,7 @@ filters:
       - IsTrackerDown()
       - Downloaded == false && !IsUnregistered()
       - SeedingHours < 26 && !IsUnregistered()
+      - HardlinkedOutsideClient == true && !IsUnregistered()
       # permaseed / un-sorted (unless torrent has been deleted)
       - Label startsWith "permaseed-" && !IsUnregistered()
       # Filter based on qbittorrent tags (only qbit at the moment)
@@ -263,10 +313,11 @@ filters:
       - IsTrackerDown()
       - Downloaded == false
       - SeedingHours < 26
+      - HardlinkedOutsideClient == true
       # permaseed / un-sorted (unless torrent has been deleted)
       - Label startsWith "permaseed-"
       # Filter based on qbittorrent tags (only qbit at the moment)
-      - '"permaseed" in Tags
+      - "permaseed" in Tags
 ```
 
 ## Supported Clients

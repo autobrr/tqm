@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	unregisteredStatuses = []string{
+	// defaultUnregisteredStatuses holds the default list if none is provided in config.
+	defaultUnregisteredStatuses = []string{
 		"complete season uploaded",
 		"dead",
 		"dupe",
@@ -46,6 +47,11 @@ var (
 		"upgraded",
 		"uploaded",
 	}
+
+	// effectiveUnregisteredStatuses stores per-tracker overrides. Key is lowercased tracker name.
+	effectiveUnregisteredStatuses = map[string]map[string]struct{}{}
+	// defaultUnregisteredStatusesMap is a pre-processed map of the defaults for faster lookups.
+	defaultUnregisteredStatusesMap = map[string]struct{}{}
 
 	trackerDownStatuses = []string{
 		// libtorrent HTTP status messages
@@ -143,45 +149,82 @@ func (t *Torrent) IsTrackerDown() bool {
 	return false
 }
 
+// Initialize prepares the default status map and processes per-tracker overrides.
+// It should be called once after configuration is loaded.
+func InitializeTrackerStatuses(perTrackerOverrides map[string][]string) {
+	log := logger.GetLogger("cfg")
+
+	// Prepare the default map (lowercase).
+	defaultUnregisteredStatusesMap = make(map[string]struct{}, len(defaultUnregisteredStatuses))
+	for _, status := range defaultUnregisteredStatuses {
+		defaultUnregisteredStatusesMap[strings.ToLower(strings.TrimSpace(status))] = struct{}{}
+	}
+	log.Debugf("Initialized default unregistered statuses: %d entries", len(defaultUnregisteredStatusesMap))
+
+	// Process per-tracker overrides.
+	effectiveUnregisteredStatuses = make(map[string]map[string]struct{}, len(perTrackerOverrides))
+	if len(perTrackerOverrides) > 0 {
+		log.Debugf("Processing %d per-tracker unregistered status overrides", len(perTrackerOverrides))
+		for tracker, statuses := range perTrackerOverrides {
+			trackerLower := strings.ToLower(strings.TrimSpace(tracker))
+			statusMap := make(map[string]struct{}, len(statuses))
+			for _, status := range statuses {
+				statusMap[strings.ToLower(strings.TrimSpace(status))] = struct{}{}
+			}
+			effectiveUnregisteredStatuses[trackerLower] = statusMap
+			log.Debugf("Set %d custom unregistered statuses for tracker: %s", len(statusMap), tracker)
+		}
+	} else {
+		log.Debug("No per-tracker unregistered status overrides provided, using defaults for all.")
+	}
+}
+
 func (t *Torrent) IsUnregistered() bool {
-	if t.IsTrackerDown() {
-		return false
-	}
+    if t.IsTrackerDown() {
+        return false
+    }
 
-	if t.TrackerStatus == "" {
-		return false
-	}
+    if t.TrackerStatus == "" {
+        return false
+    }
 
-	// check hardcoded unregistered statuses
-	status := strings.ToLower(t.TrackerStatus)
-	for _, v := range unregisteredStatuses {
-		// unregistered tracker status found?
-		if strings.Contains(status, v) {
-			return true
-		}
-	}
+    // check configured unregistered statuses using exact, case-insensitive match.
+    // Use per-tracker list if available, otherwise use defaults.
+    statusLower := strings.ToLower(t.TrackerStatus)
+    trackerLower := strings.ToLower(t.TrackerName)
 
-	// check tracker api (if available)
-	if tr := tracker.Get(t.TrackerName); tr != nil {
-		tt := &tracker.Torrent{
-			Hash:            t.Hash,
-			Name:            t.Name,
-			TotalBytes:      t.TotalBytes,
-			DownloadedBytes: t.DownloadedBytes,
-			State:           t.State,
-			Downloaded:      t.Downloaded,
-			Seeding:         t.Seeding,
-			TrackerName:     t.TrackerName,
-			TrackerStatus:   t.State,
-			Comment:         t.Comment,
-		}
+    statusMapToCheck := defaultUnregisteredStatusesMap // Default to the global defaults
+    if specificMap, ok := effectiveUnregisteredStatuses[trackerLower]; ok {
+        statusMapToCheck = specificMap // Override with tracker-specific map if it exists
+    }
 
-		if err, ur := tr.IsUnregistered(tt); err == nil {
-			return ur
-		}
-	}
+    for status := range statusMapToCheck {
+        if strings.Contains(statusLower, status) {
+            return true
+        }
+    }
 
-	return false
+    // check tracker api (if available)
+    if tr := tracker.Get(t.TrackerName); tr != nil {
+        tt := &tracker.Torrent{
+            Hash:            t.Hash,
+            Name:            t.Name,
+            TotalBytes:      t.TotalBytes,
+            DownloadedBytes: t.DownloadedBytes,
+            State:           t.State,
+            Downloaded:      t.Downloaded,
+            Seeding:         t.Seeding,
+            TrackerName:     t.TrackerName,
+            TrackerStatus:   t.State,
+            Comment:         t.Comment,
+        }
+
+        if err, ur := tr.IsUnregistered(tt); err == nil {
+            return ur
+        }
+    }
+
+    return false
 }
 
 func (t *Torrent) HasAllTags(tags ...string) bool {
