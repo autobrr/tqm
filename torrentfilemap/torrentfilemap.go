@@ -2,6 +2,7 @@ package torrentfilemap
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/autobrr/tqm/config"
 )
@@ -9,6 +10,7 @@ import (
 func New(torrents map[string]config.Torrent) *TorrentFileMap {
 	tfm := &TorrentFileMap{
 		torrentFileMap: make(map[string]map[string]config.Torrent),
+		pathCache:      sync.Map{},
 	}
 
 	for _, torrent := range torrents {
@@ -70,25 +72,41 @@ func (t *TorrentFileMap) NoInstances(torrent config.Torrent) bool {
 }
 
 func (t *TorrentFileMap) HasPath(path string, torrentPathMapping map[string]string) bool {
-	// contains check
+	if val, found := t.pathCache.Load(path); found {
+		return val.(bool)
+	}
+
+	if len(torrentPathMapping) == 0 {
+		return t.hasPathDirect(path)
+	}
+
+	found := t.hasPathWithMapping(path, torrentPathMapping)
+
+	t.pathCache.Store(path, found)
+
+	return found
+}
+
+// hasPathDirect checks if a path exists directly (no mappings)
+func (t *TorrentFileMap) hasPathDirect(path string) bool {
 	for torrentPath := range t.torrentFileMap {
-		// no torrent path mapping provided
-		if len(torrentPathMapping) == 0 {
-			if strings.Contains(torrentPath, path) {
-				return true
-			}
-
-			continue
+		if strings.Contains(torrentPath, path) {
+			return true
 		}
+	}
+	return false
+}
 
-		// iterate mappings checking
+// hasPathWithMapping checks if a path exists using torrent path mappings
+func (t *TorrentFileMap) hasPathWithMapping(path string, torrentPathMapping map[string]string) bool {
+	for torrentPath := range t.torrentFileMap {
+
 		for mapFrom, mapTo := range torrentPathMapping {
 			if strings.Contains(strings.Replace(torrentPath, mapFrom, mapTo, 1), path) {
 				return true
 			}
 		}
 	}
-
 	return false
 }
 
