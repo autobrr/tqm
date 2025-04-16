@@ -114,7 +114,7 @@ filters:
       #   mode: add # Add tag (optional, could just limit speed without tagging)
       #   uploadKb: 100 # Limit to 100 KiB/s
       #   update:
-      #     - IsPrivate == true # Only target public torrents
+      #     - IsPrivate == false # Only target public torrents
       #     - SeedingDays > 2.0
 
 ```
