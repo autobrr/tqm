@@ -16,6 +16,8 @@ type Interface interface {
 	LoadLabelPathMap() error
 	LabelPathMap() map[string]string
 
+	SetUploadLimit(hash string, limit int64) error
+
 	ShouldIgnore(*config.Torrent) (bool, error)
 	ShouldRemove(*config.Torrent) (bool, error)
 	ShouldRelabel(*config.Torrent) (string, bool, error)

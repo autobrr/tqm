@@ -5,13 +5,13 @@ import (
 	"path"
 	"time"
 
-	"github.com/autobrr/tqm/config"
-	"github.com/autobrr/tqm/expression"
-	"github.com/autobrr/tqm/logger"
-
 	"github.com/dustin/go-humanize"
 	delugeclient "github.com/gdm85/go-libdeluge"
 	"github.com/sirupsen/logrus"
+
+	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/expression"
+	"github.com/autobrr/tqm/logger"
 )
 
 /* Struct */
@@ -164,6 +164,12 @@ func (c *Deluge) GetTorrents() (map[string]config.Torrent, error) {
 			label = l
 		}
 
+		// Convert label to tags slice
+		tags := []string{}
+		if label != "" {
+			tags = append(tags, label)
+		}
+
 		// create torrent object
 		torrent := config.Torrent{
 			// torrent
@@ -183,7 +189,9 @@ func (c *Deluge) GetTorrents() (map[string]config.Torrent, error) {
 			SeedingSeconds:  t.SeedingTime,
 			SeedingHours:    float32(t.SeedingTime) / 60 / 60,
 			SeedingDays:     float32(t.SeedingTime) / 60 / 60 / 24,
-			Label:           label,
+			Label:           label, // keep original label field for compatibility if needed elsewhere
+			Tags:            tags,
+			IsPrivate:       t.Private,
 			Seeds:           t.TotalSeeds,
 			Peers:           t.TotalPeers,
 			// free space
@@ -309,4 +317,31 @@ func (c *Deluge) ShouldRelabel(t *config.Torrent) (string, bool, error) {
 	}
 
 	return "", false, nil
+}
+
+func (c *Deluge) SetUploadLimit(hash string, limit int64) error {
+	var uploadSpeed int
+	if limit == -1 {
+		uploadSpeed = -1
+	} else {
+		uploadSpeed = int(limit / 1024) // convert B/s to KiB/s
+	}
+
+	opts := &delugeclient.Options{
+		MaxUploadSpeed: &uploadSpeed,
+	}
+
+	var err error
+	if c.V2 {
+		err = c.client2.SetTorrentOptions(hash, opts)
+	} else {
+		err = c.client1.SetTorrentOptions(hash, opts)
+	}
+
+	if err != nil {
+		return fmt.Errorf("set torrent options for %s: %w", hash, err)
+	}
+
+	c.log.Debugf("Set upload limit for torrent %s to %d KiB/s", hash, uploadSpeed)
+	return nil
 }
