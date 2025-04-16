@@ -114,7 +114,7 @@ filters:
       #   mode: add # Add tag (optional, could just limit speed without tagging)
       #   uploadKb: 100 # Limit to 100 KiB/s
       #   update:
-      #     - !IsPrivate # Only target public torrents
+      #     - IsPrivate == true # Only target public torrents
       #     - SeedingDays > 2.0
 
 ```
@@ -238,7 +238,7 @@ filters:
       - IsPrivate == true && !IsUnregistered()
     remove:
       # Remove only non-private torrents that meet certain criteria
-      - !IsPrivate && Ratio > 2.0
+      - IsPrivate == false && Ratio > 2.0
 ```
 
 ### Conditional Upload Speed Limiting via Tags
@@ -257,13 +257,13 @@ Example:
 filters:
   default:
     tag:
-      # Tag public torrents seeding slowly AND limit their upload speed to 50 KiB/s
+      # Tag public torrents with many seeders AND limit their upload speed to 50 KiB/s
       - name: public-slow-seeder
         mode: add
         uploadKb: 50
         update:
-          - !IsPrivate
-          - Seeds < 3
+          - IsPrivate == false
+          - Seeds < 100
           - Seeding == true
 
       # Tag very old private torrents AND remove any upload speed limit
