@@ -5,13 +5,13 @@ import (
 	"path"
 	"time"
 
-	"github.com/autobrr/tqm/config"
-	"github.com/autobrr/tqm/expression"
-	"github.com/autobrr/tqm/logger"
-
 	"github.com/dustin/go-humanize"
 	delugeclient "github.com/gdm85/go-libdeluge"
 	"github.com/sirupsen/logrus"
+
+	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/expression"
+	"github.com/autobrr/tqm/logger"
 )
 
 /* Struct */
@@ -309,4 +309,28 @@ func (c *Deluge) ShouldRelabel(t *config.Torrent) (string, bool, error) {
 	}
 
 	return "", false, nil
+}
+
+func (c *Deluge) CheckTorrentPause(t *config.Torrent) (bool, error) {
+	match, err := expression.CheckTorrentSingleMatch(t, c.exp.Pauses)
+	if err != nil {
+		return false, fmt.Errorf("check pause expression: %v: %w", t.Hash, err)
+	}
+
+	return match, nil
+}
+
+func (c *Deluge) PauseTorrents(hashes []string) error {
+	var err error
+	if c.V2 {
+		err = c.client2.PauseTorrents(hashes...)
+	} else {
+		err = c.client1.PauseTorrents(hashes...)
+	}
+
+	if err != nil {
+		return fmt.Errorf("pause torrents: %v: %w", hashes, err)
+	}
+
+	return nil
 }

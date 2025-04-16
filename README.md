@@ -73,6 +73,11 @@ filters:
       # Qbit tag utilities
       - HasAllTags("480p", "bad-encode") # match if all tags are present
       - HasAnyTag("remove-me", "gross") # match if at least 1 tag is present
+    pause: # New section for pausing torrents
+      # Pause torrents seeding for more than 7 days with a ratio below 0.5
+      - Ratio < 0.5 && SeedingDays > 7
+      # Pause incomplete torrents older than 2 weeks
+      - Downloaded == false && AddedDays > 14
     label:
       # btn 1080p season packs to permaseed (all must evaluate to true)
       - name: permaseed-btn
@@ -350,6 +355,12 @@ filters:
 `tqm orphan qbt --dry-run`
 
 `tqm orphan qbt`
+
+5. Pause - Retrieve torrent client queue and pause torrents matching its configured filters
+
+`tqm pause qbt --dry-run`
+
+`tqm pause qbt`
 
 ***
 

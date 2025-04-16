@@ -5,6 +5,7 @@ import "github.com/expr-lang/expr/vm"
 type Expressions struct {
 	Ignores []*vm.Program
 	Removes []*vm.Program
+	Pauses  []*vm.Program // Added for pause functionality
 	Labels  []*LabelExpression
 	Tags    []*TagExpression
 }

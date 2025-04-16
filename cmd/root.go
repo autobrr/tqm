@@ -5,15 +5,15 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+
 	"github.com/autobrr/tqm/config"
 	"github.com/autobrr/tqm/logger"
 	"github.com/autobrr/tqm/runtime"
 	"github.com/autobrr/tqm/stringutils"
 	"github.com/autobrr/tqm/tracker"
-
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -55,6 +55,9 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVar(&flagDryRun, "dry-run", false, "Dry run mode")
 	rootCmd.PersistentFlags().BoolVar(&flagExperimentalRelabelForCrossSeeds, "experimental-relabel", false, "Enable experimental relabeling for cross-seeded torrents, using hardlinks (only qbit for now")
+
+	// Register commands (pauseCmd added here)
+	// rootCmd.AddCommand(pauseCmd) // This should be done in the init() of the command file itself (e.g., cmd/pause.go)
 }
 
 func initCore(showAppInfo bool) {

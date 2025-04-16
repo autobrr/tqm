@@ -3,10 +3,10 @@ package expression
 import (
 	"fmt"
 
-	"github.com/autobrr/tqm/config"
-
-	"github.com/autobrr/tqm/regex"
 	"github.com/expr-lang/expr"
+
+	"github.com/autobrr/tqm/config"
+	"github.com/autobrr/tqm/regex"
 )
 
 func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
@@ -41,6 +41,16 @@ func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 		}
 
 		exp.Removes = append(exp.Removes, program)
+	}
+
+	// compile pauses
+	for _, pauseExpr := range filter.Pause {
+		program, err := expr.Compile(pauseExpr, expr.Env(exprEnv), expr.AsBool())
+		if err != nil {
+			return nil, fmt.Errorf("compile pause expression: %q: %w", pauseExpr, err)
+		}
+
+		exp.Pauses = append(exp.Pauses, program)
 	}
 
 	// compile labels

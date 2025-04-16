@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
+	qbit "github.com/autobrr/go-qbittorrent"
+	"github.com/dustin/go-humanize"
+	"github.com/sirupsen/logrus"
+
 	"github.com/autobrr/tqm/config"
 	"github.com/autobrr/tqm/expression"
 	"github.com/autobrr/tqm/logger"
 	"github.com/autobrr/tqm/sliceutils"
-
-	qbit "github.com/autobrr/go-qbittorrent"
-	"github.com/dustin/go-humanize"
-	"github.com/sirupsen/logrus"
 )
 
 /* Struct */
@@ -404,6 +404,22 @@ func (c *QBittorrent) ShouldRelabel(t *config.Torrent) (string, bool, error) {
 	}
 
 	return "", false, nil
+}
+
+func (c *QBittorrent) CheckTorrentPause(t *config.Torrent) (bool, error) {
+	match, err := expression.CheckTorrentSingleMatch(t, c.exp.Pauses)
+	if err != nil {
+		return false, fmt.Errorf("check pause expression: %v: %w", t.Hash, err)
+	}
+
+	return match, nil
+}
+
+func (c *QBittorrent) PauseTorrents(hashes []string) error {
+	if err := c.client.Pause(hashes); err != nil {
+		return fmt.Errorf("pause torrents: %v: %w", hashes, err)
+	}
+	return nil
 }
 
 func (c *QBittorrent) ShouldRetag(t *config.Torrent) (RetagInfo, bool, error) {
