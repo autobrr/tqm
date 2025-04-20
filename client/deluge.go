@@ -192,6 +192,7 @@ func (c *Deluge) GetTorrents() (map[string]config.Torrent, error) {
 			Label:           label, // keep original label field for compatibility if needed elsewhere
 			Tags:            tags,
 			IsPrivate:       t.Private,
+			IsPublic:        !t.Private,
 			Seeds:           t.TotalSeeds,
 			Peers:           t.TotalPeers,
 			// free space

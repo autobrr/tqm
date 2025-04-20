@@ -235,6 +235,7 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 			Seeds:          int64(td.SeedsTotal),
 			Peers:          int64(td.PeersTotal),
 			IsPrivate:      td.IsPrivate,
+			IsPublic:       !td.IsPrivate,
 			// free space
 			FreeSpaceGB:  c.GetFreeSpace,
 			FreeSpaceSet: c.freeSpaceSet,

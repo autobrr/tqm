@@ -191,6 +191,7 @@ type Torrent struct {
  Seeds           int64
  Peers           int64
  IsPrivate       bool
+ IsPublic        bool
 
  FreeSpaceGB  func() float64
  FreeSpaceSet bool
@@ -221,24 +222,29 @@ HasMissingFiles() bool // True if any of the torrent's files are missing from di
 Log(n float64) float64    // The natural logarithm function
 ```
 
-### Filtering by Private Status
+### Filtering by Private/Public Status
 
-The `IsPrivate` field (boolean) is now available for use in all filter expressions (`ignore`, `remove`, `label`, `tag`).
+You can use either `IsPublic` or `IsPrivate` to filter torrents - they are complementary fields. Always use explicit comparisons (`== true` or `== false`).
 
--   Use `IsPrivate == true` or simply `IsPrivate` to match private torrents.
--   Use `IsPrivate == false` or `!IsPrivate` to match public (non-private) torrents.
-
-This allows you to create rules that specifically target or exclude torrents based on their private status, for example:
-
+Example filters:
 ```yaml
 filters:
   default:
     ignore:
-      # Ignore private torrents unless they are unregistered
-      - IsPrivate == true && !IsUnregistered()
+      # These achieve the same result:
+      - IsPublic == false && !IsUnregistered()   # private torrents
+      - IsPrivate == true && !IsUnregistered()   # private torrents
     remove:
-      # Remove only non-private torrents that meet certain criteria
-      - IsPrivate == false && Ratio > 2.0
+      # These achieve the same result:
+      - IsPublic == true && Ratio > 2.0    # public torrents
+      - IsPrivate == false && Ratio > 2.0  # public torrents
+    tag:
+      - name: public-torrent
+        mode: full
+        update:
+          # These achieve the same result:
+          - IsPublic == true    # public torrents
+          - IsPrivate == false  # public torrents
 ```
 
 ### Conditional Upload Speed Limiting via Tags
