@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
-	qbit "github.com/autobrr/go-qbittorrent"
-	"github.com/dustin/go-humanize"
-	"github.com/sirupsen/logrus"
-
 	"github.com/autobrr/tqm/config"
 	"github.com/autobrr/tqm/expression"
 	"github.com/autobrr/tqm/logger"
 	"github.com/autobrr/tqm/sliceutils"
+
+	qbit "github.com/autobrr/go-qbittorrent"
+	"github.com/dustin/go-humanize"
+	"github.com/sirupsen/logrus"
 )
 
 /* Struct */

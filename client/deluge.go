@@ -5,13 +5,13 @@ import (
 	"path"
 	"time"
 
-	"github.com/dustin/go-humanize"
-	delugeclient "github.com/gdm85/go-libdeluge"
-	"github.com/sirupsen/logrus"
-
 	"github.com/autobrr/tqm/config"
 	"github.com/autobrr/tqm/expression"
 	"github.com/autobrr/tqm/logger"
+
+	"github.com/dustin/go-humanize"
+	delugeclient "github.com/gdm85/go-libdeluge"
+	"github.com/sirupsen/logrus"
 )
 
 /* Struct */
