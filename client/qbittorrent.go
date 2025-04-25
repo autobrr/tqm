@@ -231,6 +231,7 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 			SeedingSeconds: int64(seedingTime.Seconds()),
 			SeedingHours:   float32(seedingTime.Seconds()) / 60 / 60,
 			SeedingDays:    float32(seedingTime.Seconds()) / 60 / 60 / 24,
+			UpLimit:        int64(td.UpLimit),
 			Label:          t.Category,
 			Seeds:          int64(td.SeedsTotal),
 			Peers:          int64(td.PeersTotal),
@@ -357,7 +358,7 @@ func (c *QBittorrent) SetUploadLimit(hash string, limit int64) error {
 		return fmt.Errorf("set upload limit for %s: %w", hash, err)
 	}
 
-	c.log.Debugf("Set upload limit for torrent %s to %d B/s", hash, limit)
+	c.log.Debugf("Set upload limit for torrent %s to %d KiB/s", hash, limit)
 	return nil
 }
 
@@ -442,9 +443,13 @@ func (c *QBittorrent) ShouldRetag(t *config.Torrent) (RetagInfo, error) {
 		}
 
 		if match && tagRule.UploadKb != nil && !uploadLimitSet {
-			limit := int64(*tagRule.UploadKb)
-			retagInfo.UploadKb = &limit
-			uploadLimitSet = true
+			limitKiB := int64(*tagRule.UploadKb)
+			currentLimitKiB := t.UpLimit / 1024
+
+			if currentLimitKiB != limitKiB {
+				retagInfo.UploadKb = &limitKiB
+				uploadLimitSet = true
+			}
 		}
 	}
 

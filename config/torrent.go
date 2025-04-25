@@ -120,6 +120,7 @@ type Torrent struct {
 	Peers           int64    `json:"Peers"`
 	IsPrivate       bool     `json:"IsPrivate"`
 	IsPublic        bool     `json:"IsPublic"`
+	UpLimit         int64    `json:"UpLimit,omitempty"`
 
 	// set by client on GetCurrentFreeSpace
 	FreeSpaceGB  func() float64 `json:"-"`
