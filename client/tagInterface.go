@@ -5,14 +5,15 @@ import (
 )
 
 type RetagInfo struct {
-	Add    []string
-	Remove []string
+	Add      []string
+	Remove   []string
+	UploadKb *int64
 }
 
 type TagInterface interface {
 	Interface
 
-	ShouldRetag(*config.Torrent) (RetagInfo, bool, error)
+	ShouldRetag(*config.Torrent) (RetagInfo, error)
 	AddTags(string, []string) error
 	RemoveTags(string, []string) error
 	CreateTags([]string) error

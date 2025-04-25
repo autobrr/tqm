@@ -53,9 +53,13 @@ filters:
       - Label startsWith "permaseed-" && !IsUnregistered()
       # Filter based on qbittorrent tags (only qbit at the moment)
       - '"permaseed" in Tags && !IsUnregistered()'
+      # Example: Ignore private torrents unless they are unregistered
+      # - IsPrivate == true && !IsUnregistered()
     remove:
       # general
       - IsUnregistered()
+      # Example: Remove non-private torrents that meet ratio/seed time criteria
+      # - !IsPrivate && (Ratio > 2.0 || SeedingDays >= 7.0)
       # imported
       - Label in ["sonarr-imported", "radarr-imported", "lidarr-imported"] && (Ratio > 4.0 || SeedingDays >= 15.0)
       # ipt
@@ -102,8 +106,16 @@ filters:
       # "mode: remove" simply means that tags will not be added
       # to torrents that do match.
         mode: full
+        # uploadKb: 50 # Optional: Apply 50 KiB/s upload limit if conditions match (-1 for unlimited)
         update:
           - Seeds <= 3
+      # Example: Limit upload speed for public torrents that have seeded for over 2 days
+      # - name: limit-public-seed-time
+      #   mode: add # Add tag (optional, could just limit speed without tagging)
+      #   uploadKb: 100 # Limit to 100 KiB/s
+      #   update:
+      #     - IsPrivate == false # Only target public torrents
+      #     - SeedingDays > 2.0
 
 ```
 
@@ -158,28 +170,30 @@ The following torrent fields (along with their types) can be used in the configu
 
 ```go
 type Torrent struct {
- Hash            string  
- Name            string  
- Path            string  
- TotalBytes      int64   
- DownloadedBytes int64   
- State           string  
+ Hash            string
+ Name            string
+ Path            string
+ TotalBytes      int64
+ DownloadedBytes int64
+ State           string
  Files           []string
  Tags            []string
- Downloaded      bool    
- Seeding         bool    
- Ratio           float32 
- AddedSeconds    int64   
- AddedHours      float32 
- AddedDays       float32 
- SeedingSeconds  int64   
- SeedingHours    float32 
- SeedingDays     float32 
- Label           string  
- Seeds           int64   
- Peers           int64   
+ Downloaded      bool
+ Seeding         bool
+ Ratio           float32
+ AddedSeconds    int64
+ AddedHours      float32
+ AddedDays       float32
+ SeedingSeconds  int64
+ SeedingHours    float32
+ SeedingDays     float32
+ Label           string
+ Seeds           int64
+ Peers           int64
+ IsPrivate       bool
+ IsPublic        bool
 
- FreeSpaceGB  func() float64 
+ FreeSpaceGB  func() float64
  FreeSpaceSet bool
 
  TrackerName   string
@@ -206,6 +220,65 @@ HasAllTags(tags ...string) bool // True if torrent has ALL tags specified
 HasAnyTag(tags ...string) bool  // True if torrent has at least one tag specified
 HasMissingFiles() bool // True if any of the torrent's files are missing from disk
 Log(n float64) float64    // The natural logarithm function
+```
+
+### Filtering by Private/Public Status
+
+You can use either `IsPublic` or `IsPrivate` to filter torrents - they are complementary fields. Always use explicit comparisons (`== true` or `== false`).
+
+Example filters:
+```yaml
+filters:
+  default:
+    ignore:
+      # These achieve the same result:
+      - IsPublic == false && !IsUnregistered()   # private torrents
+      - IsPrivate == true && !IsUnregistered()   # private torrents
+    remove:
+      # These achieve the same result:
+      - IsPublic == true && Ratio > 2.0    # public torrents
+      - IsPrivate == false && Ratio > 2.0  # public torrents
+    tag:
+      - name: public-torrent
+        mode: full
+        update:
+          # These achieve the same result:
+          - IsPublic == true    # public torrents
+          - IsPrivate == false  # public torrents
+```
+
+### Conditional Upload Speed Limiting via Tags
+
+You can apply upload speed limits to torrents conditionally based on matching `tag` rules. This is useful for throttling specific groups of torrents (e.g., slow seeders, public torrents).
+
+-   Add an optional `uploadKb` field to any rule within the `tag:` section of your filter definition.
+-   The value should be the desired upload speed limit in **KiB/s**.
+-   Use `-1` to signify an unlimited upload speed.
+-   If a torrent matches the `update:` conditions for a tag rule that includes `uploadKb`, the specified speed limit will be applied to that torrent.
+-   This speed limit is applied when you run the `tqm retag <client>` command.
+
+Example:
+
+```yaml
+filters:
+  default:
+    tag:
+      # Tag public torrents with many seeders AND limit their upload speed to 50 KiB/s
+      - name: public-slow-seeder
+        mode: add
+        uploadKb: 50
+        update:
+          - IsPrivate == false
+          - Seeds < 100
+          - Seeding == true
+
+      # Tag very old private torrents AND remove any upload speed limit
+      - name: private-unlimited-seed
+        mode: add
+        uploadKb: -1
+        update:
+          - IsPrivate == true
+          - SeedingDays > 100
 ```
 
 ### MapHardlinksFor

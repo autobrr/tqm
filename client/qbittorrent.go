@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,7 +64,7 @@ func NewQBittorrent(name string, exp *expression.Expressions) (TagInterface, err
 
 	// init client
 	qbl := logrus.New()
-	qbl.Out = ioutil.Discard
+	qbl.Out = io.Discard
 	//tc.client = qbittorrent.NewClient(strings.TrimSuffix(*tc.Url, "/"), qbl)
 	tc.client = qbit.NewClient(qbit.Config{
 		Host:          *tc.Url,
@@ -231,9 +231,12 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 			SeedingSeconds: int64(seedingTime.Seconds()),
 			SeedingHours:   float32(seedingTime.Seconds()) / 60 / 60,
 			SeedingDays:    float32(seedingTime.Seconds()) / 60 / 60 / 24,
+			UpLimit:        int64(td.UpLimit),
 			Label:          t.Category,
 			Seeds:          int64(td.SeedsTotal),
 			Peers:          int64(td.PeersTotal),
+			IsPrivate:      td.IsPrivate,
+			IsPublic:       !td.IsPrivate,
 			// free space
 			FreeSpaceGB:  c.GetFreeSpace,
 			FreeSpaceSet: c.freeSpaceSet,
@@ -347,6 +350,18 @@ func (c *QBittorrent) SetTorrentLabel(hash string, label string, hardlink bool) 
 	return nil
 }
 
+func (c *QBittorrent) SetUploadLimit(hash string, limit int64) error {
+
+	ctx := context.Background()
+	err := c.client.SetTorrentUploadLimitCtx(ctx, hash, limit)
+	if err != nil {
+		return fmt.Errorf("set upload limit for %s: %w", hash, err)
+	}
+
+	c.log.Debugf("Set upload limit for torrent %s to %d KiB/s", hash, limit)
+	return nil
+}
+
 func (c *QBittorrent) GetCurrentFreeSpace(path string) (int64, error) {
 	// get current main stats
 	data, err := c.client.SyncMainDataCtx(context.Background(), 0)
@@ -406,30 +421,39 @@ func (c *QBittorrent) ShouldRelabel(t *config.Torrent) (string, bool, error) {
 	return "", false, nil
 }
 
-func (c *QBittorrent) ShouldRetag(t *config.Torrent) (RetagInfo, bool, error) {
+func (c *QBittorrent) ShouldRetag(t *config.Torrent) (RetagInfo, error) {
 	var retagInfo = RetagInfo{}
+	var uploadLimitSet = false
 
-	for _, tag := range c.exp.Tags {
+	for _, tagRule := range c.exp.Tags {
 		// check update
-		match, err := expression.CheckTorrentAllMatch(t, tag.Updates)
+		match, err := expression.CheckTorrentAllMatch(t, tagRule.Updates)
 		if err != nil {
-			return RetagInfo{}, false, fmt.Errorf("check update expression: %v: %w", t.Hash, err)
+			return RetagInfo{}, fmt.Errorf("check update expression for tag %s on torrent %v: %w", tagRule.Name, t.Hash, err)
 		}
 
-		var containTag = sliceutils.StringSliceContains(t.Tags, tag.Name, false)
-		var tagMode = tag.Mode
+		var containTag = sliceutils.StringSliceContains(t.Tags, tagRule.Name, false)
+		var tagMode = tagRule.Mode
 
 		if containTag && !match && (tagMode == "remove" || tagMode == "full") {
-			// we should remove the tag
-			retagInfo.Remove = append(retagInfo.Remove, tag.Name)
+			retagInfo.Remove = append(retagInfo.Remove, tagRule.Name)
 		}
 		if !containTag && match && (tagMode == "add" || tagMode == "full") {
-			// we should add the tag
-			retagInfo.Add = append(retagInfo.Add, tag.Name)
+			retagInfo.Add = append(retagInfo.Add, tagRule.Name)
+		}
+
+		if match && tagRule.UploadKb != nil && !uploadLimitSet {
+			limitKiB := int64(*tagRule.UploadKb)
+			currentLimitKiB := t.UpLimit / 1024
+
+			if currentLimitKiB != limitKiB {
+				retagInfo.UploadKb = &limitKiB
+				uploadLimitSet = true
+			}
 		}
 	}
 
-	return retagInfo, len(retagInfo.Add) != 0 || len(retagInfo.Remove) != 0, nil
+	return retagInfo, nil
 }
 
 func (c *QBittorrent) AddTags(hash string, tags []string) error {
