@@ -72,7 +72,7 @@ func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 
 	// compile tags
 	for _, tagExpr := range filter.Tag {
-		le := &TagExpression{Name: tagExpr.Name, Mode: tagExpr.Mode}
+		le := &TagExpression{Name: tagExpr.Name, Mode: tagExpr.Mode, UploadKb: tagExpr.UploadKb}
 
 		// compile updates
 		for _, updateExpr := range tagExpr.Update {

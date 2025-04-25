@@ -16,7 +16,8 @@ type LabelExpression struct {
 }
 
 type TagExpression struct {
-	Name    string
-	Mode    string
-	Updates []*vm.Program
+	Name     string
+	Mode     string
+	UploadKb *int
+	Updates  []*vm.Program
 }

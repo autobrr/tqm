@@ -11,8 +11,9 @@ type FilterConfiguration struct {
 		Update []string
 	}
 	Tag []struct {
-		Name   string
-		Mode   string
-		Update []string
+		Name     string
+		Mode     string
+		UploadKb *int `mapstructure:"uploadKb"`
+		Update   []string
 	}
 }

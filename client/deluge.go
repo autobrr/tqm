@@ -184,6 +184,8 @@ func (c *Deluge) GetTorrents() (map[string]config.Torrent, error) {
 			SeedingHours:    float32(t.SeedingTime) / 60 / 60,
 			SeedingDays:     float32(t.SeedingTime) / 60 / 60 / 24,
 			Label:           label,
+			IsPrivate:       t.Private,
+			IsPublic:        !t.Private,
 			Seeds:           t.TotalSeeds,
 			Peers:           t.TotalPeers,
 			// free space
@@ -309,6 +311,33 @@ func (c *Deluge) ShouldRelabel(t *config.Torrent) (string, bool, error) {
 	}
 
 	return "", false, nil
+}
+
+func (c *Deluge) SetUploadLimit(hash string, limit int64) error {
+	var uploadSpeed int
+	if limit == -1 {
+		uploadSpeed = -1
+	} else {
+		uploadSpeed = int(limit / 1024)
+	}
+
+	opts := &delugeclient.Options{
+		MaxUploadSpeed: &uploadSpeed,
+	}
+
+	var err error
+	if c.V2 {
+		err = c.client2.SetTorrentOptions(hash, opts)
+	} else {
+		err = c.client1.SetTorrentOptions(hash, opts)
+	}
+
+	if err != nil {
+		return fmt.Errorf("set torrent options for %s: %w", hash, err)
+	}
+
+	c.log.Debugf("Set upload limit for torrent %s to %d KiB/s", hash, uploadSpeed)
+	return nil
 }
 
 func (c *Deluge) CheckTorrentPause(t *config.Torrent) (bool, error) {

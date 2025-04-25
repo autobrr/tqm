@@ -1,16 +1,17 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 	"time"
+
+	"github.com/dustin/go-humanize"
+	"github.com/sirupsen/logrus"
 
 	"github.com/autobrr/tqm/client"
 	"github.com/autobrr/tqm/config"
 	"github.com/autobrr/tqm/hardlinkfilemap"
 	"github.com/autobrr/tqm/torrentfilemap"
-
-	"github.com/dustin/go-humanize"
-	"github.com/sirupsen/logrus"
 )
 
 func removeSlice(slice []string, remove []string) []string {
@@ -33,46 +34,97 @@ func retagEligibleTorrents(log *logrus.Entry, c client.TagInterface, torrents ma
 
 	// iterate torrents
 	for h, t := range torrents {
-		// should we retag torrent?
-		retagInfo, retag, err := c.ShouldRetag(&t)
+		// should we retag torrent and/or apply speed limit?
+		retagInfo, err := c.ShouldRetag(&t)
 		if err != nil {
-			// error while determining whether to relabel torrent
-			log.WithError(err).Errorf("Failed determining whether to retag: %+v", t)
+			// error while determining whether to evaluate tag rules
+			log.WithError(err).Errorf("Failed evaluating tag rules for: %+v", t)
 			continue
-		} else if !retag {
-			// torrent did not meet the retag filters
-			log.Tracef("Not retagging %s: %s", h, t.Name)
+		}
+
+		// check if any action (tagging or speed limit) is needed
+		shouldTakeAction := len(retagInfo.Add) > 0 || len(retagInfo.Remove) > 0 || retagInfo.UploadKb != nil
+
+		if !shouldTakeAction {
+			// torrent did not meet any tag rule conditions
+			log.Tracef("No tag actions for %s: %s", h, t.Name)
 			ignoredTorrents++
 			continue
 		}
 
 		// retag
 		log.Info("-----")
-		log.Infof("Retagging: %q - New Tags: %s", t.Name, strings.Join(append(removeSlice(t.Tags, retagInfo.Remove), retagInfo.Add...), ", "))
+		actionLogs := []string{}
+		if len(retagInfo.Add) > 0 || len(retagInfo.Remove) > 0 {
+			currentTags := removeSlice(t.Tags, retagInfo.Remove)
+			finalTags := append(currentTags, retagInfo.Add...)
+			actionLogs = append(actionLogs, fmt.Sprintf("Retagging to: [%s]", strings.Join(finalTags, ", ")))
+		}
+		if retagInfo.UploadKb != nil {
+			limitKb := *retagInfo.UploadKb
+			if limitKb == -1 {
+				actionLogs = append(actionLogs, "Setting upload limit: Unlimited")
+			} else {
+				actionLogs = append(actionLogs, fmt.Sprintf("Setting upload limit: %d KiB/s", limitKb))
+			}
+		}
+
+		log.Infof("Actions for: %q - %s", t.Name, strings.Join(actionLogs, " | "))
 		log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
 			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
 
+		actionTaken := false
+		actionFailed := false
+
 		if !flagDryRun {
-			error := 0
-			if err := c.AddTags(t.Hash, retagInfo.Add); err != nil {
-				log.WithError(err).Fatalf("Failed adding tags to torrent: %+v", t)
-				error = 1
-				continue
+			// apply tag changes
+			if len(retagInfo.Add) > 0 {
+				if err := c.AddTags(t.Hash, retagInfo.Add); err != nil {
+					log.WithError(err).Errorf("Failed adding tags %v to torrent: %+v", retagInfo.Add, t)
+					actionFailed = true
+				} else {
+					log.Debugf("Added tags: %v", retagInfo.Add)
+					actionTaken = true
+				}
+			}
+			if len(retagInfo.Remove) > 0 && !actionFailed {
+				if err := c.RemoveTags(t.Hash, retagInfo.Remove); err != nil {
+					log.WithError(err).Errorf("Failed removing tags %v from torrent: %+v", retagInfo.Remove, t)
+					actionFailed = true
+				} else {
+					log.Debugf("Removed tags: %v", retagInfo.Remove)
+					actionTaken = true
+				}
 			}
 
-			if err := c.RemoveTags(t.Hash, retagInfo.Remove); err != nil {
-				log.WithError(err).Fatalf("Failed remove tags from torrent: %+v", t)
-				error = 1
-				continue
+			// apply speed limit change
+			if retagInfo.UploadKb != nil && !actionFailed {
+				limitBytes := *retagInfo.UploadKb * 1024
+				if *retagInfo.UploadKb == -1 {
+					limitBytes = -1
+				}
+				if err := c.SetUploadLimit(t.Hash, limitBytes); err != nil {
+					log.WithError(err).Errorf("Failed setting upload limit to %d KiB/s for torrent: %+v", *retagInfo.UploadKb, t)
+					actionFailed = true
+				} else {
+					log.Debugf("Set upload limit to %d KiB/s", *retagInfo.UploadKb)
+					actionTaken = true
+				}
 			}
 
-			errorRetaggedTorrents += error
-			log.Info("Retagged")
+			if actionFailed {
+				errorRetaggedTorrents++
+			} else if actionTaken {
+				log.Info("Actions applied successfully.")
+			}
+
 		} else {
-			log.Warn("Dry-run enabled, skipping retag...")
+			log.Warn("Dry-run enabled, skipping actions...")
 		}
 
-		retaggedTorrents++
+		if actionTaken || flagDryRun && shouldTakeAction {
+			retaggedTorrents++
+		}
 	}
 
 	// show result
