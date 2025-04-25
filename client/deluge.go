@@ -164,12 +164,6 @@ func (c *Deluge) GetTorrents() (map[string]config.Torrent, error) {
 			label = l
 		}
 
-		// Convert label to tags slice
-		tags := []string{}
-		if label != "" {
-			tags = append(tags, label)
-		}
-
 		// create torrent object
 		torrent := config.Torrent{
 			// torrent
@@ -189,8 +183,7 @@ func (c *Deluge) GetTorrents() (map[string]config.Torrent, error) {
 			SeedingSeconds:  t.SeedingTime,
 			SeedingHours:    float32(t.SeedingTime) / 60 / 60,
 			SeedingDays:     float32(t.SeedingTime) / 60 / 60 / 24,
-			Label:           label, // keep original label field for compatibility if needed elsewhere
-			Tags:            tags,
+			Label:           label,
 			IsPrivate:       t.Private,
 			IsPublic:        !t.Private,
 			Seeds:           t.TotalSeeds,
@@ -325,7 +318,7 @@ func (c *Deluge) SetUploadLimit(hash string, limit int64) error {
 	if limit == -1 {
 		uploadSpeed = -1
 	} else {
-		uploadSpeed = int(limit / 1024) // convert B/s to KiB/s
+		uploadSpeed = int(limit / 1024)
 	}
 
 	opts := &delugeclient.Options{
