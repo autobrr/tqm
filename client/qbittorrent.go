@@ -422,7 +422,7 @@ func (c *QBittorrent) ShouldRelabel(t *config.Torrent) (string, bool, error) {
 
 func (c *QBittorrent) ShouldRetag(t *config.Torrent) (RetagInfo, error) {
 	var retagInfo = RetagInfo{}
-	var uploadLimitSet = false // Flag to ensure only the first matching rule's limit is applied
+	var uploadLimitSet = false
 
 	for _, tagRule := range c.exp.Tags {
 		// check update
