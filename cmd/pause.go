@@ -107,7 +107,7 @@ var pauseCmd = &cobra.Command{
 						humanize.IBytes(uint64(space)), c.GetFreeSpace())
 				}
 			} else {
-				filterUsesFreespace := checkFilterUsesFreespace(clientFilter) // Reuse the check function
+				filterUsesFreespace := checkFilterUsesFreespace(clientFilter)
 
 				if filterUsesFreespace {
 					log.Error("Deluge requires free_space_path to be configured in order to retrieve free space information")
@@ -132,13 +132,11 @@ var pauseCmd = &cobra.Command{
 			}
 		}
 
-		// --- Start Pause Logic ---
 		var pauseList []string
 
 		// iterate through torrents
 		for _, t := range torrents {
 			// check if torrent should be ignored
-			// Use ShouldIgnore and pass pointer
 			if ignored, err := c.ShouldIgnore(&t); err != nil {
 				log.WithError(err).Errorf("Failed checking ignore filters for torrent: %q", t.Name)
 				continue
@@ -148,7 +146,6 @@ var pauseCmd = &cobra.Command{
 			}
 
 			// check if torrent should be paused
-			// Pass pointer to CheckTorrentPause
 			if paused, err := c.CheckTorrentPause(&t); err != nil {
 				log.WithError(err).Errorf("Failed checking pause filters for torrent: %q", t.Name)
 				continue
@@ -163,7 +160,7 @@ var pauseCmd = &cobra.Command{
 			if len(pauseList) > 0 {
 				log.Infof("Pausing %d torrent(s)...", len(pauseList))
 				if err := c.PauseTorrents(pauseList); err != nil {
-					log.WithError(err).Fatalf("Failed pausing torrents: %v", err) // Use Fatalf for consistency
+					log.WithError(err).Fatalf("Failed pausing torrents: %v", err)
 				}
 				log.Infof("Successfully paused %d torrent(s)", len(pauseList))
 			} else {
@@ -176,7 +173,6 @@ var pauseCmd = &cobra.Command{
 				log.Info("[DRY-RUN] No torrents would be paused")
 			}
 		}
-		// --- End Pause Logic ---
 	},
 }
 
@@ -184,8 +180,4 @@ func init() {
 	rootCmd.AddCommand(pauseCmd)
 
 	pauseCmd.Flags().StringVar(&flagFilterName, "filter", "", "Filter to use instead of client")
-	// Add dry-run flag if not already inherited or managed globally
-	// pauseCmd.Flags().BoolVar(&flagDryRun, "dry-run", false, "Perform a dry run without pausing torrents")
 }
-
-// Removed pauseEligibleTorrents function
