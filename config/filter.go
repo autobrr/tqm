@@ -4,7 +4,7 @@ type FilterConfiguration struct {
 	MapHardlinksFor []string
 	Ignore          []string
 	Remove          []string
-	Pause           []string // Added for pause functionality
+	Pause           []string
 	DeleteData      *bool
 	Label           []struct {
 		Name   string
