@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,7 +64,7 @@ func NewQBittorrent(name string, exp *expression.Expressions) (TagInterface, err
 
 	// init client
 	qbl := logrus.New()
-	qbl.Out = ioutil.Discard
+	qbl.Out = io.Discard
 	//tc.client = qbittorrent.NewClient(strings.TrimSuffix(*tc.Url, "/"), qbl)
 	tc.client = qbit.NewClient(qbit.Config{
 		Host:          *tc.Url,
