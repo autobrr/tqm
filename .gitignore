@@ -1,14 +1,18 @@
-# misc
+# ide and editor files
 /.idea/
 /.vscode/
 
-# configuration
+# build and binary files
+/dist/
+/vendor/
+
+# configuration and secrets
 config.json
 config.yaml
 *.db
 
-# vendor files
-/vendor/
+# logs and runtime data
+activity.log
 
-# dist folder
-/dist/
+# os specific files
+.DS_Store
