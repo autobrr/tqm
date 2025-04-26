@@ -142,7 +142,11 @@ var orphanCmd = &cobra.Command{
 		var atomicRemovedLocalFiles uint32
 		var atomicRemovedLocalFilesSize uint64
 
-		const gracePeriod = 10 * time.Minute
+		gracePeriod := 10 * time.Minute
+		if config.Config.Orphan.GracePeriod > 0 {
+			gracePeriod = config.Config.Orphan.GracePeriod
+		}
+		log.Debugf("Using grace period: %v", gracePeriod)
 
 		processInBatches(localFilePaths, maxWorkers, batchSize, func(localPath string, localPathSize int64) {
 			defer wg.Done()

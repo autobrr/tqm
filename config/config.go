@@ -3,15 +3,16 @@ package config
 import (
 	"fmt"
 	"strings"
-
-	"github.com/autobrr/tqm/logger"
-	"github.com/autobrr/tqm/stringutils"
-	"github.com/autobrr/tqm/tracker"
+	"time"
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
+
+	"github.com/autobrr/tqm/logger"
+	"github.com/autobrr/tqm/stringutils"
+	"github.com/autobrr/tqm/tracker"
 )
 
 type TrackerErrorsConfig struct {
@@ -21,12 +22,17 @@ type TrackerErrorsConfig struct {
 	PerTrackerUnregisteredStatuses map[string][]string `yaml:"per_tracker_unregistered_statuses" koanf:"per_tracker_unregistered_statuses"`
 }
 
+type OrphanConfig struct {
+	GracePeriod time.Duration `yaml:"grace_period" koanf:"grace_period"`
+}
+
 type Configuration struct {
 	Clients                    map[string]map[string]interface{}
 	Filters                    map[string]FilterConfiguration
 	Trackers                   tracker.Config
 	BypassIgnoreIfUnregistered bool
 	TrackerErrors              TrackerErrorsConfig `yaml:"tracker_errors" koanf:"tracker_errors"`
+	Orphan                     OrphanConfig        `yaml:"orphan" koanf:"orphan"`
 }
 
 /* Vars */

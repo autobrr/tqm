@@ -125,7 +125,11 @@ filters:
       #     - IsPrivate == false # Only target public torrents
       #     - SeedingDays > 2.0
 
-```
+# Orphan configuration
+orphan:
+  # grace period for recently modified files (default: 10m)
+  # valid time units are: ns, us (or µs), ms, s, m, h
+  grace_period: 10m
 
 ## Optional - Tracker Configuration
 
@@ -426,7 +430,7 @@ filters:
 
 `tqm retag qbt`
 
-4. Orphan - Retrieve torrent client queue and local files/folders in download_path, remove orphan files/folders
+4. Orphan - Retrieve torrent client queue and local files/folders in download_path, remove orphan files/folders. Files modified within the grace period (default: 10m) will be skipped.
 
 `tqm orphan qbt --dry-run`
 
