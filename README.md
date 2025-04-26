@@ -59,7 +59,7 @@ filters:
       # general
       - IsUnregistered()
       # Example: Remove non-private torrents that meet ratio/seed time criteria
-      # - !IsPrivate && (Ratio > 2.0 || SeedingDays >= 7.0)
+      # - IsPrivate == false && (Ratio > 2.0 || SeedingDays >= 7.0)
       # imported
       - Label in ["sonarr-imported", "radarr-imported", "lidarr-imported"] && (Ratio > 4.0 || SeedingDays >= 15.0)
       # ipt
