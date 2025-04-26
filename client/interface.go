@@ -20,5 +20,8 @@ type Interface interface {
 
 	ShouldIgnore(*config.Torrent) (bool, error)
 	ShouldRemove(*config.Torrent) (bool, error)
+	CheckTorrentPause(*config.Torrent) (bool, error)
 	ShouldRelabel(*config.Torrent) (string, bool, error)
+
+	PauseTorrents([]string) error
 }

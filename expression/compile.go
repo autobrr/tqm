@@ -43,6 +43,16 @@ func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 		exp.Removes = append(exp.Removes, program)
 	}
 
+	// compile pauses
+	for _, pauseExpr := range filter.Pause {
+		program, err := expr.Compile(pauseExpr, expr.Env(exprEnv), expr.AsBool())
+		if err != nil {
+			return nil, fmt.Errorf("compile pause expression: %q: %w", pauseExpr, err)
+		}
+
+		exp.Pauses = append(exp.Pauses, program)
+	}
+
 	// compile labels
 	for _, labelExpr := range filter.Label {
 		le := &LabelExpression{Name: labelExpr.Name}
