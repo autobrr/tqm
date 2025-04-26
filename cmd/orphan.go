@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
@@ -141,6 +142,8 @@ var orphanCmd = &cobra.Command{
 		var atomicRemovedLocalFiles uint32
 		var atomicRemovedLocalFilesSize uint64
 
+		const gracePeriod = 10 * time.Minute
+
 		processInBatches(localFilePaths, maxWorkers, batchSize, func(localPath string, localPathSize int64) {
 			defer wg.Done()
 
@@ -148,12 +151,28 @@ var orphanCmd = &cobra.Command{
 				return
 			}
 
+			// check file modification time for grace period
+			fileInfo, err := os.Stat(localPath)
+			if err != nil {
+				mu.Lock()
+				log.WithError(err).Warnf("Could not stat file, skipping removal check: %q", localPath)
+				mu.Unlock()
+				return
+			}
+
+			if time.Since(fileInfo.ModTime()) < gracePeriod {
+				mu.Lock()
+				log.Warnf("File is recently modified (within %v), skipping removal due to grace period: %q", gracePeriod, localPath)
+				mu.Unlock()
+				return
+			}
+
 			mu.Lock()
 			log.Info("-----")
-			log.Infof("Removing orphan: %q", localPath)
+			log.Infof("Removing orphan (outside grace period): %q", localPath)
 			mu.Unlock()
 
-			removed := true // file is not associated with a torrent
+			removed := true
 
 			if flagDryRun {
 				mu.Lock()
