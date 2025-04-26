@@ -22,6 +22,8 @@ require (
 	go.uber.org/ratelimit v0.3.1
 )
 
+require github.com/charlievieth/fastwalk v1.0.10
+
 require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
