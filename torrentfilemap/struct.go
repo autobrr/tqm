@@ -9,4 +9,5 @@ import (
 type TorrentFileMap struct {
 	torrentFileMap map[string]map[string]config.Torrent
 	pathCache      sync.Map
+	mu             sync.RWMutex
 }

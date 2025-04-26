@@ -13,14 +13,33 @@ func New(torrents map[string]config.Torrent) *TorrentFileMap {
 		pathCache:      sync.Map{},
 	}
 
+	tfm.mu.Lock()
 	for _, torrent := range torrents {
-		tfm.Add(torrent)
+		tfm.addInternal(torrent)
 	}
+	tfm.mu.Unlock()
 
 	return tfm
 }
 
+// addInternal is the non-locking version of Add for use within New
+func (t *TorrentFileMap) addInternal(torrent config.Torrent) {
+	for _, f := range torrent.Files {
+		if _, exists := t.torrentFileMap[f]; exists {
+			t.torrentFileMap[f][torrent.Hash] = torrent
+			continue
+		}
+
+		t.torrentFileMap[f] = map[string]config.Torrent{
+			torrent.Hash: torrent,
+		}
+	}
+}
+
 func (t *TorrentFileMap) Add(torrent config.Torrent) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	for _, f := range torrent.Files {
 		if _, exists := t.torrentFileMap[f]; exists {
 			// filepath already associated with other torrents
@@ -36,6 +55,9 @@ func (t *TorrentFileMap) Add(torrent config.Torrent) {
 }
 
 func (t *TorrentFileMap) Remove(torrent config.Torrent) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	for _, f := range torrent.Files {
 		if _, exists := t.torrentFileMap[f]; exists {
 			// remove this hash from the file entry
@@ -52,6 +74,9 @@ func (t *TorrentFileMap) Remove(torrent config.Torrent) {
 }
 
 func (t *TorrentFileMap) IsUnique(torrent config.Torrent) bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	for _, f := range torrent.Files {
 		if torrents, exists := t.torrentFileMap[f]; exists && len(torrents) > 1 {
 			return false
@@ -62,6 +87,9 @@ func (t *TorrentFileMap) IsUnique(torrent config.Torrent) bool {
 }
 
 func (t *TorrentFileMap) NoInstances(torrent config.Torrent) bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	for _, f := range torrent.Files {
 		if torrents, exists := t.torrentFileMap[f]; exists && len(torrents) >= 1 {
 			return false
@@ -76,11 +104,14 @@ func (t *TorrentFileMap) HasPath(path string, torrentPathMapping map[string]stri
 		return val.(bool)
 	}
 
+	t.mu.RLock()
+	var found bool
 	if len(torrentPathMapping) == 0 {
-		return t.hasPathDirect(path)
+		found = t.hasPathDirect(path)
+	} else {
+		found = t.hasPathWithMapping(path, torrentPathMapping)
 	}
-
-	found := t.hasPathWithMapping(path, torrentPathMapping)
+	t.mu.RUnlock()
 
 	t.pathCache.Store(path, found)
 
@@ -100,7 +131,6 @@ func (t *TorrentFileMap) hasPathDirect(path string) bool {
 // hasPathWithMapping checks if a path exists using torrent path mappings
 func (t *TorrentFileMap) hasPathWithMapping(path string, torrentPathMapping map[string]string) bool {
 	for torrentPath := range t.torrentFileMap {
-
 		for mapFrom, mapTo := range torrentPathMapping {
 			if strings.Contains(strings.Replace(torrentPath, mapFrom, mapTo, 1), path) {
 				return true
@@ -111,9 +141,14 @@ func (t *TorrentFileMap) hasPathWithMapping(path string, torrentPathMapping map[
 }
 
 func (t *TorrentFileMap) RemovePath(path string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.pathCache.Delete(path)
 	delete(t.torrentFileMap, path)
 }
 
 func (t *TorrentFileMap) Length() int {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
 	return len(t.torrentFileMap)
 }
