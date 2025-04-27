@@ -48,7 +48,7 @@ jobs:
           cache: true
 
       - name: Test
-        run: go run gotest.tools/gotestsum@latest --junitfile unit-tests.xml --format pkgname -- ./...
+        run: go run gotest.tools/gotestsum@latest -race --junitfile unit-tests.xml --format pkgname -- ./...
 
       - name: Test Summary
         uses: test-summary/action@v2
