@@ -353,7 +353,7 @@ func (c *QBittorrent) SetTorrentLabel(hash string, label string, hardlink bool) 
 func (c *QBittorrent) SetUploadLimit(hash string, limit int64) error {
 
 	ctx := context.Background()
-	err := c.client.SetTorrentUploadLimitCtx(ctx, hash, limit)
+	err := c.client.SetTorrentUploadLimitCtx(ctx, []string{hash}, limit)
 	if err != nil {
 		return fmt.Errorf("set upload limit for %s: %w", hash, err)
 	}
