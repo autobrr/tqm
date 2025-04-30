@@ -44,7 +44,7 @@ ${BUILD_PATH}/${CMD}: ${GO_FILES} go.sum
 		-trimpath \
 		-ldflags "-s -w -X github.com/autobrr/tqm/runtime.Version=${VERSION} -X github.com/autobrr/tqm/runtime.GitCommit=${GIT_COMMIT} -X github.com/autobrr/tqm/runtime.Timestamp=${TIMESTAMP}" \
 		-o ${BUILD_PATH}/${CMD} \
-		.
+		./cmd/tqm
 
 .PHONY: install
 install: build ## Install binary

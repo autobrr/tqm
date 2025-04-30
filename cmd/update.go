@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"os"
 
-	"github.com/autobrr/tqm/runtime"
-
 	"github.com/blang/semver"
 	"github.com/rhysd/go-github-selfupdate/selfupdate"
 	"github.com/spf13/cobra"
+
+	"github.com/autobrr/tqm/pkg/runtime"
 )
 
 var updateCmd = &cobra.Command{
