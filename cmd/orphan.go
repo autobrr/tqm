@@ -165,6 +165,14 @@ var orphanCmd = &cobra.Command{
 				return
 			}
 
+			if isIgnoredPath(localPath, filter.Orphan.IgnorePaths) {
+				mu.Lock()
+				log.Debugf("File matches a path in the ignore list, skipping removal: %q", localPath)
+				mu.Unlock()
+				atomic.AddUint32(&atomicIgnoredLocalFiles, 1)
+				return
+			}
+
 			// check file modification time for grace period
 			fileInfo, err := os.Stat(localPath)
 			if err != nil {
@@ -178,14 +186,6 @@ var orphanCmd = &cobra.Command{
 				mu.Lock()
 				log.Warnf("File is recently modified (within %v), skipping removal due to grace period: %q", gracePeriod, localPath)
 				mu.Unlock()
-				return
-			}
-
-			if isIgnoredPath(localPath, filter.Orphan.IgnorePaths) {
-				mu.Lock()
-				log.Debugf("File matches a path in the ignore list, skipping removal: %q", localPath)
-				mu.Unlock()
-				atomic.AddUint32(&atomicIgnoredLocalFiles, 1)
 				return
 			}
 
@@ -225,15 +225,17 @@ var orphanCmd = &cobra.Command{
 		var ignoredLocalFolders uint32
 		orphanFolderPaths := make([]string, 0, len(localFolderPaths))
 		for localPath := range localFolderPaths {
+			if tfm.HasPath(localPath, clientDownloadPathMapping) {
+				continue
+			}
+
 			if isIgnoredPath(localPath, filter.Orphan.IgnorePaths) {
 				log.Debugf("Folder matches a path in the ignore list, skipping removal: %q", localPath)
 				ignoredLocalFolders++
 				continue
 			}
 
-			if !tfm.HasPath(localPath, clientDownloadPathMapping) {
-				orphanFolderPaths = append(orphanFolderPaths, localPath)
-			}
+			orphanFolderPaths = append(orphanFolderPaths, localPath)
 		}
 
 		// Sort orphan folders by path length (depth) in descending order
