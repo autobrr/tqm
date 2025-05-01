@@ -5,9 +5,9 @@ go 1.24
 toolchain go1.24.2
 
 require (
-	github.com/autobrr/go-qbittorrent v1.12.0
+	github.com/autobrr/go-qbittorrent v1.13.0
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/bobesa/go-domain-util v0.0.0-20190911083921-4033b5f7dd89
+	github.com/bobesa/go-domain-util v0.0.0-20250410211237-17ab3b2f4a95
 	github.com/charlievieth/fastwalk v1.0.10
 	github.com/dlclark/regexp2 v1.11.5
 	github.com/dustin/go-humanize v1.0.1
@@ -29,7 +29,7 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f // indirect
+	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 )
 
 require (
@@ -43,7 +43,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
@@ -58,7 +58,7 @@ require (
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
-	golang.org/x/oauth2 v0.24.0 // indirect
+	golang.org/x/oauth2 v0.29.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/term v0.31.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
