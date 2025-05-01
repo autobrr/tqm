@@ -136,7 +136,6 @@ filters:
 
 ## Optional - Tracker Configuration
 
-```yaml
 trackers:
   bhd:
     api_key: your-api-key
