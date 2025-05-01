@@ -350,9 +350,6 @@ func setupTestConfig() {
 	if config.Config == nil {
 		config.Config = &config.Configuration{}
 	}
-	if config.Config.Orphan.GracePeriod == 0 {
-		config.Config.Orphan.GracePeriod = 10 * time.Minute
-	}
 }
 
 func TestMain(m *testing.M) {

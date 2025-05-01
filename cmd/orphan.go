@@ -140,11 +140,21 @@ var orphanCmd = &cobra.Command{
 		var mu sync.Mutex
 		var atomicRemoveFailures uint32
 		var atomicRemovedLocalFiles uint32
+		var atomicIgnoredLocalFiles uint32
 		var atomicRemovedLocalFilesSize uint64
 
+		filter, err := getClientFilter(clientConfig)
+		if err != nil {
+			log.WithError(err).Fatal("Failed to get client filter")
+		}
+
+		if filter == nil {
+			log.Fatal("Defined filter is empty")
+		}
+
 		gracePeriod := 10 * time.Minute
-		if config.Config.Orphan.GracePeriod > 0 {
-			gracePeriod = config.Config.Orphan.GracePeriod
+		if filter.Orphan.GracePeriod > 0 {
+			gracePeriod = filter.Orphan.GracePeriod
 		}
 		log.Debugf("Using grace period: %v", gracePeriod)
 
@@ -168,6 +178,14 @@ var orphanCmd = &cobra.Command{
 				mu.Lock()
 				log.Warnf("File is recently modified (within %v), skipping removal due to grace period: %q", gracePeriod, localPath)
 				mu.Unlock()
+				return
+			}
+
+			if isIgnoredPath(localPath, filter.Orphan.IgnorePaths) {
+				mu.Lock()
+				log.Debugf("File matches a path in the ignore list, skipping removal: %q", localPath)
+				mu.Unlock()
+				atomic.AddUint32(&atomicIgnoredLocalFiles, 1)
 				return
 			}
 
@@ -204,8 +222,15 @@ var orphanCmd = &cobra.Command{
 
 		wg.Wait()
 
+		var ignoredLocalFolders uint32
 		orphanFolderPaths := make([]string, 0, len(localFolderPaths))
 		for localPath := range localFolderPaths {
+			if isIgnoredPath(localPath, filter.Orphan.IgnorePaths) {
+				log.Debugf("Folder matches a path in the ignore list, skipping removal: %q", localPath)
+				ignoredLocalFolders++
+				continue
+			}
+
 			if !tfm.HasPath(localPath, clientDownloadPathMapping) {
 				orphanFolderPaths = append(orphanFolderPaths, localPath)
 			}
@@ -254,12 +279,13 @@ var orphanCmd = &cobra.Command{
 
 		removeFailures := atomic.LoadUint32(&atomicRemoveFailures)
 		removedLocalFiles := atomic.LoadUint32(&atomicRemovedLocalFiles)
+		ignoredLocalFiles := atomic.LoadUint32(&atomicIgnoredLocalFiles)
 		removedLocalFilesSize := atomic.LoadUint64(&atomicRemovedLocalFilesSize)
 
 		log.Info("-----")
 		log.WithField("reclaimed_space", humanize.IBytes(removedLocalFilesSize)).
-			Infof("Removed orphans: %d files, %d folders and %d failures",
-				removedLocalFiles, removedLocalFolders, removeFailures)
+			Infof("Removed orphans: %d files, %d folders and %d failures. Ignored %d files and %d folders",
+				removedLocalFiles, removedLocalFolders, removeFailures, ignoredLocalFiles, ignoredLocalFolders)
 	},
 }
 
@@ -281,6 +307,17 @@ func isDirEmpty(path string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// isIgnoredPath checks if a path is in the provided ignore list
+func isIgnoredPath(path string, ignoreList []string) bool {
+	for _, ignore := range ignoreList {
+		if strings.HasPrefix(path, ignore) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // processInBatches processes a map in batches using a worker pool

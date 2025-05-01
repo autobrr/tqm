@@ -124,12 +124,15 @@ filters:
       #   update:
       #     - IsPrivate == false # Only target public torrents
       #     - SeedingDays > 2.0
-
-# Orphan configuration
-orphan:
-  # grace period for recently modified files (default: 10m)
-  # valid time units are: ns, us (or µs), ms, s, m, h
-  grace_period: 10m
+    # Orphan configuration
+    orphan:
+      # grace period for recently modified files (default: 10m)
+      # valid time units are: ns, us (or µs), ms, s, m, h
+      grace_period: 10m
+      # paths that will be ignored during the orphaned files check
+      ignore_paths:
+        - /mnt/local/downloads/torrents/qbittorrent/completed/tv-4k
+        - /mnt/local/downloads/torrents/qbittorrent/completed/movie-4k
 
 ## Optional - Tracker Configuration
 
