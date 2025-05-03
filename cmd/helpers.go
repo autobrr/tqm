@@ -221,6 +221,94 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 	errorRemoveTorrents := 0
 	var removedTorrentBytes int64 = 0
 
+	deleteData := true
+	if filter != nil && filter.DeleteData != nil {
+		deleteData = *filter.DeleteData
+	}
+
+	// helper function to handle removal of torrents that aren't unique
+	handleNonUniqueTorrent := func(h string, t *config.Torrent, isHardlinked bool) bool {
+		// Check if torrent is unregistered (can bypass uniqueness checks)
+		if t.IsUnregistered() {
+			// For unregistered torrents, override safety checks
+			log.Info("-----")
+			if isHardlinked {
+				log.Infof("removing unregistered non-unique torrent (hardlinked): %q - %s", t.Name, humanize.IBytes(uint64(t.DownloadedBytes)))
+			} else {
+				log.Infof("removing unregistered non-unique torrent (file overlap): %q - %s", t.Name, humanize.IBytes(uint64(t.DownloadedBytes)))
+			}
+			log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
+				"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
+
+			// update the hardlink map before removing the torrent
+			hfm.RemoveByTorrent(*t)
+
+			if !flagDryRun {
+				// Use the global deleteData for hardlinked torrents
+				// For file overlap (not hardlinked), always keep the data
+				localDeleteData := deleteData
+
+				// Only override deleteData for file overlap (not hardlinked) torrents
+				if !isHardlinked {
+					localDeleteData = false
+				}
+
+				removed, err := c.RemoveTorrent(t.Hash, localDeleteData)
+				if err != nil {
+					log.WithError(err).Errorf("Failed removing torrent: %+v", t)
+					// dont remove from torrents file map, but prevent further operations on this torrent
+					delete(torrents, h)
+					errorRemoveTorrents++
+					return true
+				} else if !removed {
+					log.Error("Failed removing torrent...")
+					// dont remove from torrents file map, but prevent further operations on this torrent
+					delete(torrents, h)
+					errorRemoveTorrents++
+					return true
+				} else {
+					if localDeleteData {
+						log.Info("Removed with data")
+					} else {
+						log.Info("Removed (kept data on disk)")
+					}
+
+					// increase free space if we removed data
+					if localDeleteData && t.FreeSpaceSet {
+						log.Tracef("Increasing free space by: %s", humanize.IBytes(uint64(t.DownloadedBytes)))
+						c.AddFreeSpace(t.DownloadedBytes)
+						log.Tracef("New free space: %.2f GB", c.GetFreeSpace())
+					}
+
+					time.Sleep(1 * time.Second)
+				}
+			} else {
+				log.Warn("Dry-run enabled, skipping remove...")
+			}
+
+			// increased hard removed counters
+			removedTorrentBytes += t.DownloadedBytes
+			hardRemoveTorrents++
+
+			// remove the torrent from the torrent maps
+			tfm.Remove(*t)
+			delete(torrents, h)
+			return true
+		}
+
+		// For regular torrents, add to candidates for standard processing
+		if isHardlinked {
+			log.Warnf("Skipping non-unique torrent (hardlinked) | Name: %s / Label: %s / Tags: %s / Tracker: %s",
+				t.Name, t.Label, strings.Join(t.Tags, ", "), t.TrackerName)
+		} else {
+			log.Warnf("Skipping non-unique torrent (file overlap) | Name: %s / Label: %s / Tags: %s / Tracker: %s",
+				t.Name, t.Label, strings.Join(t.Tags, ", "), t.TrackerName)
+		}
+
+		// Important! We need to return the torrent so it can be added to candidates in the caller
+		return false
+	}
+
 	// helper function to remove torrent
 	removeTorrent := func(h string, t *config.Torrent) {
 		// remove the torrent
@@ -240,11 +328,6 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 		hfm.RemoveByTorrent(*t)
 
 		if !flagDryRun {
-			deleteData := true
-			if filter != nil && filter.DeleteData != nil {
-				deleteData = *filter.DeleteData
-			}
-
 			// do remove
 			removed, err := c.RemoveTorrent(t.Hash, deleteData)
 			if err != nil {
@@ -321,18 +404,29 @@ func removeEligibleTorrents(log *logrus.Entry, c client.Interface, torrents map[
 
 		// torrent meets the remove filters
 
-		// are the files unique and eligible for a hard deletion (remove data)
+		// Check if the torrent is not unique (either through file mapping or hardlinks)
+		isNotUnique := false
+		isHardlinked := false
+
 		if !tfm.IsUnique(t) {
-			log.Warnf("Skipping non unique torrent | Name: %s / Label: %s / Tags: %s / Tracker: %s", t.Name, t.Label, strings.Join(t.Tags, ", "), t.TrackerName)
-			candidates[h] = t
-			continue
+			// the are files unique and eligible for a hard deletion (remove data)
+			isNotUnique = true
+			isHardlinked = false
+		} else if !hfm.IsTorrentUnique(t) {
+			// the files are hardlinked to other torrents
+			isNotUnique = true
+			isHardlinked = true
 		}
 
-		// are the files not hardlinked to other torrents
-		if !hfm.IsTorrentUnique(t) {
-			log.Warnf("Skipping non unique torrent (hardlinked) | Name: %s / Label: %s / Tags: %s / Tracker: %s", t.Name, t.Label, strings.Join(t.Tags, ", "), t.TrackerName)
-			candidates[h] = t
-			continue
+		if isNotUnique {
+			if handled := handleNonUniqueTorrent(h, &t, isHardlinked); handled {
+				// Torrent was handled (removed) in the function
+				continue
+			} else {
+				// Torrent was not removed, add to candidates
+				candidates[h] = t
+				continue
+			}
 		}
 
 		removeTorrent(h, &t)
