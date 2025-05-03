@@ -390,8 +390,8 @@ func (c *QBittorrent) GetFreeSpace() float64 {
 
 /* Filters */
 
-func (c *QBittorrent) ShouldIgnore(t *config.Torrent) (bool, error) {
-	match, err := expression.CheckTorrentSingleMatch(t, c.exp.Ignores)
+func (c *QBittorrent) ShouldIgnore(ctx context.Context, t *config.Torrent) (bool, error) {
+	match, err := expression.CheckTorrentSingleMatch(ctx, t, c.exp.Ignores)
 	if err != nil {
 		return true, fmt.Errorf("check ignore expression: %v: %w", t.Hash, err)
 	}
@@ -399,8 +399,8 @@ func (c *QBittorrent) ShouldIgnore(t *config.Torrent) (bool, error) {
 	return match, nil
 }
 
-func (c *QBittorrent) ShouldRemove(t *config.Torrent) (bool, error) {
-	match, err := expression.CheckTorrentSingleMatch(t, c.exp.Removes)
+func (c *QBittorrent) ShouldRemove(ctx context.Context, t *config.Torrent) (bool, error) {
+	match, err := expression.CheckTorrentSingleMatch(ctx, t, c.exp.Removes)
 	if err != nil {
 		return false, fmt.Errorf("check remove expression: %v: %w", t.Hash, err)
 	}
@@ -408,10 +408,10 @@ func (c *QBittorrent) ShouldRemove(t *config.Torrent) (bool, error) {
 	return match, nil
 }
 
-func (c *QBittorrent) ShouldRelabel(t *config.Torrent) (string, bool, error) {
+func (c *QBittorrent) ShouldRelabel(ctx context.Context, t *config.Torrent) (string, bool, error) {
 	for _, label := range c.exp.Labels {
 		// check update
-		match, err := expression.CheckTorrentAllMatch(t, label.Updates)
+		match, err := expression.CheckTorrentAllMatch(ctx, t, label.Updates)
 		if err != nil {
 			return "", false, fmt.Errorf("check update expression: %v: %w", t.Hash, err)
 		} else if !match {
@@ -425,8 +425,8 @@ func (c *QBittorrent) ShouldRelabel(t *config.Torrent) (string, bool, error) {
 	return "", false, nil
 }
 
-func (c *QBittorrent) CheckTorrentPause(t *config.Torrent) (bool, error) {
-	match, err := expression.CheckTorrentSingleMatch(t, c.exp.Pauses)
+func (c *QBittorrent) CheckTorrentPause(ctx context.Context, t *config.Torrent) (bool, error) {
+	match, err := expression.CheckTorrentSingleMatch(ctx, t, c.exp.Pauses)
 	if err != nil {
 		return false, fmt.Errorf("check pause expression: %v: %w", t.Hash, err)
 	}
@@ -441,13 +441,13 @@ func (c *QBittorrent) PauseTorrents(ctx context.Context, hashes []string) error 
 	return nil
 }
 
-func (c *QBittorrent) ShouldRetag(t *config.Torrent) (RetagInfo, error) {
+func (c *QBittorrent) ShouldRetag(ctx context.Context, t *config.Torrent) (RetagInfo, error) {
 	var retagInfo = RetagInfo{}
 	var uploadLimitSet = false
 
 	for _, tagRule := range c.exp.Tags {
 		// check update
-		match, err := expression.CheckTorrentAllMatch(t, tagRule.Updates)
+		match, err := expression.CheckTorrentAllMatch(ctx, t, tagRule.Updates)
 		if err != nil {
 			return RetagInfo{}, fmt.Errorf("check update expression for tag %s on torrent %v: %w", tagRule.Name, t.Hash, err)
 		}

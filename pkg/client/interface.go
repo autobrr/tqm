@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+
 	"github.com/autobrr/tqm/pkg/config"
 )
 
@@ -19,10 +20,10 @@ type Interface interface {
 
 	SetUploadLimit(ctx context.Context, hash string, limit int64) error
 
-	ShouldIgnore(*config.Torrent) (bool, error)
-	ShouldRemove(*config.Torrent) (bool, error)
-	CheckTorrentPause(*config.Torrent) (bool, error)
-	ShouldRelabel(*config.Torrent) (string, bool, error)
+	ShouldIgnore(ctx context.Context, t *config.Torrent) (bool, error)
+	ShouldRemove(ctx context.Context, t *config.Torrent) (bool, error)
+	CheckTorrentPause(ctx context.Context, t *config.Torrent) (bool, error)
+	ShouldRelabel(ctx context.Context, t *config.Torrent) (string, bool, error)
 
 	PauseTorrents(ctx context.Context, hashes []string) error
 }

@@ -1,6 +1,7 @@
 package expression
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/expr-lang/expr"
@@ -9,8 +10,69 @@ import (
 	"github.com/autobrr/tqm/pkg/regex"
 )
 
+type evalContext struct {
+	*config.Torrent
+	ctx context.Context
+}
+
+func (e *evalContext) IsUnregistered() bool {
+	if e.Torrent == nil {
+		return false
+	}
+	return e.Torrent.IsUnregistered(e.ctx)
+}
+
+func (e *evalContext) IsTrackerDown() bool {
+	if e.Torrent == nil {
+		return false
+	}
+	return e.Torrent.IsTrackerDown()
+}
+
+func (e *evalContext) HasAllTags(tags ...string) bool {
+	if e.Torrent == nil {
+		return false
+	}
+	return e.Torrent.HasAllTags(tags...)
+}
+
+func (e *evalContext) HasAnyTag(tags ...string) bool {
+	if e.Torrent == nil {
+		return false
+	}
+	return e.Torrent.HasAnyTag(tags...)
+}
+
+func (e *evalContext) HasMissingFiles() bool {
+	if e.Torrent == nil {
+		return false
+	}
+	return e.Torrent.HasMissingFiles()
+}
+
+func (e *evalContext) RegexMatch(pattern string) bool {
+	if e.Torrent == nil {
+		return false
+	}
+	return e.Torrent.RegexMatch(pattern)
+}
+
+func (e *evalContext) RegexMatchAny(patternsStr string) bool {
+	if e.Torrent == nil {
+		return false
+	}
+	return e.Torrent.RegexMatchAny(patternsStr)
+}
+
+func (e *evalContext) RegexMatchAll(patternsStr string) bool {
+	if e.Torrent == nil {
+		return false
+	}
+	return e.Torrent.RegexMatchAll(patternsStr)
+}
+
 func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
-	exprEnv := &config.Torrent{}
+	exprEnv := &evalContext{}
 	exp := new(Expressions)
 
 	// validate all regex patterns in expressions

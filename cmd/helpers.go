@@ -36,7 +36,7 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 	// iterate torrents
 	for h, t := range torrents {
 		// should we retag torrent and/or apply speed limit?
-		retagInfo, err := c.ShouldRetag(&t)
+		retagInfo, err := c.ShouldRetag(ctx, &t)
 		if err != nil {
 			// error while determining whether to evaluate tag rules
 			log.WithError(err).Errorf("Failed evaluating tag rules for: %+v", t)
@@ -147,7 +147,7 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 	// iterate torrents
 	for h, t := range torrents {
 		// should we relabel torrent?
-		label, relabel, err := c.ShouldRelabel(&t)
+		label, relabel, err := c.ShouldRelabel(ctx, &t)
 		if err != nil {
 			// error while determining whether to relabel torrent
 			log.WithError(err).Errorf("Failed determining whether to relabel: %+v", t)
@@ -376,7 +376,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	candidates := make(map[string]config.Torrent)
 	for h, t := range torrents {
 		// should we ignore this torrent?
-		ignore, err := c.ShouldIgnore(&t)
+		ignore, err := c.ShouldIgnore(ctx, &t)
 		if err != nil {
 			// error while determining whether to ignore torrent
 			log.WithError(err).Errorf("Failed determining whether to ignore: %+v", t)
@@ -391,7 +391,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		}
 
 		// should we remove this torrent?
-		remove, err := c.ShouldRemove(&t)
+		remove, err := c.ShouldRemove(ctx, &t)
 		if err != nil {
 			log.WithError(err).Errorf("Failed determining whether to remove: %+v", t)
 			// dont do any further operations on this torrent, but keep in the torrent file map

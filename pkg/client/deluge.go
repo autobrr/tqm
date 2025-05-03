@@ -279,8 +279,8 @@ func (c *Deluge) GetFreeSpace() float64 {
 
 /* Filters */
 
-func (c *Deluge) ShouldIgnore(t *config.Torrent) (bool, error) {
-	match, err := expression.CheckTorrentSingleMatch(t, c.exp.Ignores)
+func (c *Deluge) ShouldIgnore(ctx context.Context, t *config.Torrent) (bool, error) {
+	match, err := expression.CheckTorrentSingleMatch(ctx, t, c.exp.Ignores)
 	if err != nil {
 		return true, fmt.Errorf("check ignore expression: %v: %w", t.Hash, err)
 	}
@@ -288,8 +288,8 @@ func (c *Deluge) ShouldIgnore(t *config.Torrent) (bool, error) {
 	return match, nil
 }
 
-func (c *Deluge) ShouldRemove(t *config.Torrent) (bool, error) {
-	match, err := expression.CheckTorrentSingleMatch(t, c.exp.Removes)
+func (c *Deluge) ShouldRemove(ctx context.Context, t *config.Torrent) (bool, error) {
+	match, err := expression.CheckTorrentSingleMatch(ctx, t, c.exp.Removes)
 	if err != nil {
 		return false, fmt.Errorf("check remove expression: %v: %w", t.Hash, err)
 	}
@@ -297,10 +297,10 @@ func (c *Deluge) ShouldRemove(t *config.Torrent) (bool, error) {
 	return match, nil
 }
 
-func (c *Deluge) ShouldRelabel(t *config.Torrent) (string, bool, error) {
+func (c *Deluge) ShouldRelabel(ctx context.Context, t *config.Torrent) (string, bool, error) {
 	for _, label := range c.exp.Labels {
 		// check update
-		match, err := expression.CheckTorrentAllMatch(t, label.Updates)
+		match, err := expression.CheckTorrentAllMatch(ctx, t, label.Updates)
 		if err != nil {
 			return "", false, fmt.Errorf("check update expression: %v: %w", t.Hash, err)
 		} else if !match {
@@ -341,8 +341,8 @@ func (c *Deluge) SetUploadLimit(ctx context.Context, hash string, limit int64) e
 	return nil
 }
 
-func (c *Deluge) CheckTorrentPause(t *config.Torrent) (bool, error) {
-	match, err := expression.CheckTorrentSingleMatch(t, c.exp.Pauses)
+func (c *Deluge) CheckTorrentPause(ctx context.Context, t *config.Torrent) (bool, error) {
+	match, err := expression.CheckTorrentSingleMatch(ctx, t, c.exp.Pauses)
 	if err != nil {
 		return false, fmt.Errorf("check pause expression: %v: %w", t.Hash, err)
 	}

@@ -1,6 +1,7 @@
 package expression
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/expr-lang/expr"
@@ -9,9 +10,11 @@ import (
 	"github.com/autobrr/tqm/pkg/config"
 )
 
-func CheckTorrentSingleMatch(t *config.Torrent, exp []*vm.Program) (bool, error) {
+func CheckTorrentSingleMatch(ctx context.Context, t *config.Torrent, exp []*vm.Program) (bool, error) {
+	env := &evalContext{Torrent: t, ctx: ctx}
+
 	for _, expression := range exp {
-		result, err := expr.Run(expression, t)
+		result, err := expr.Run(expression, env)
 		if err != nil {
 			return false, fmt.Errorf("check expression: %w", err)
 		}
@@ -29,9 +32,11 @@ func CheckTorrentSingleMatch(t *config.Torrent, exp []*vm.Program) (bool, error)
 	return false, nil
 }
 
-func CheckTorrentAllMatch(t *config.Torrent, exp []*vm.Program) (bool, error) {
+func CheckTorrentAllMatch(ctx context.Context, t *config.Torrent, exp []*vm.Program) (bool, error) {
+	env := &evalContext{Torrent: t, ctx: ctx}
+
 	for _, expression := range exp {
-		result, err := expr.Run(expression, t)
+		result, err := expr.Run(expression, env)
 		if err != nil {
 			return false, fmt.Errorf("check expression: %w", err)
 		}
