@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"math"
 	"os"
 	"strings"
@@ -182,7 +183,7 @@ func InitializeTrackerStatuses(perTrackerOverrides map[string][]string) {
 	}
 }
 
-func (t *Torrent) IsUnregistered() bool {
+func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 	if t.IsTrackerDown() {
 		return false
 	}
@@ -222,7 +223,7 @@ func (t *Torrent) IsUnregistered() bool {
 			Comment:         t.Comment,
 		}
 
-		if err, ur := tr.IsUnregistered(tt); err == nil {
+		if err, ur := tr.IsUnregistered(ctx, tt); err == nil {
 			return ur
 		}
 	}

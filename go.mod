@@ -5,6 +5,7 @@ go 1.24
 toolchain go1.24.2
 
 require (
+	github.com/autobrr/go-deluge v1.3.0
 	github.com/autobrr/go-qbittorrent v1.13.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bobesa/go-domain-util v0.0.0-20190911083921-4033b5f7dd89
@@ -12,7 +13,6 @@ require (
 	github.com/dlclark/regexp2 v1.11.5
 	github.com/dustin/go-humanize v1.0.1
 	github.com/expr-lang/expr v1.17.2
-	github.com/gdm85/go-libdeluge v0.6.0
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/knadh/koanf v1.5.0
 	github.com/lucperkins/rek v0.1.3

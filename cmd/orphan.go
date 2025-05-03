@@ -28,6 +28,8 @@ var orphanCmd = &cobra.Command{
 
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
+
 		// init core
 		if !initialized {
 			initCore(true)
@@ -81,14 +83,14 @@ var orphanCmd = &cobra.Command{
 		log.Infof("Initialized client %q, type: %s (%d trackers)", clientName, c.Type(), tracker.Loaded())
 
 		// connect to client
-		if err := c.Connect(); err != nil {
+		if err := c.Connect(ctx); err != nil {
 			log.WithError(err).Fatal("Failed connecting")
 		} else {
 			log.Debugf("Connected to client")
 		}
 
 		// retrieve torrents
-		torrents, err := c.GetTorrents()
+		torrents, err := c.GetTorrents(ctx)
 		if err != nil {
 			log.WithError(err).Fatal("Failed retrieving torrents")
 		} else {

@@ -21,6 +21,8 @@ var pauseCmd = &cobra.Command{
 
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
+
 		// init core
 		if !initialized {
 			initCore(true)
@@ -79,7 +81,7 @@ var pauseCmd = &cobra.Command{
 		log.Infof("Initialized client %q, type: %s (%d trackers)", clientName, c.Type(), tracker.Loaded())
 
 		// connect to client
-		if err := c.Connect(); err != nil {
+		if err := c.Connect(ctx); err != nil {
 			log.WithError(err).Fatal("Failed connecting")
 		} else {
 			log.Debugf("Connected to client")
@@ -88,7 +90,7 @@ var pauseCmd = &cobra.Command{
 		// get free disk space (can/will be used by filters)
 		switch *clientType {
 		case "qbittorrent":
-			space, err := c.GetCurrentFreeSpace("")
+			space, err := c.GetCurrentFreeSpace(ctx, "")
 			if err != nil {
 				log.WithError(err).Error("Failed retrieving free-space")
 			} else {
@@ -98,7 +100,7 @@ var pauseCmd = &cobra.Command{
 
 		case "deluge":
 			if clientFreeSpacePath != nil {
-				space, err := c.GetCurrentFreeSpace(*clientFreeSpacePath)
+				space, err := c.GetCurrentFreeSpace(ctx, *clientFreeSpacePath)
 				if err != nil {
 					log.WithError(err).Errorf("Failed retrieving free-space for: %q", *clientFreeSpacePath)
 					os.Exit(1)
@@ -117,7 +119,7 @@ var pauseCmd = &cobra.Command{
 		}
 
 		// retrieve torrents
-		torrents, err := c.GetTorrents()
+		torrents, err := c.GetTorrents(ctx)
 		if err != nil {
 			log.WithError(err).Fatal("Failed retrieving torrents")
 		} else {
@@ -159,7 +161,7 @@ var pauseCmd = &cobra.Command{
 		if !flagDryRun {
 			if len(pauseList) > 0 {
 				log.Infof("Pausing %d torrent(s)...", len(pauseList))
-				if err := c.PauseTorrents(pauseList); err != nil {
+				if err := c.PauseTorrents(ctx, pauseList); err != nil {
 					log.WithError(err).Fatalf("Failed pausing torrents: %v", err)
 				}
 				log.Infof("Successfully paused %d torrent(s)", len(pauseList))

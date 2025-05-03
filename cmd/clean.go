@@ -26,6 +26,8 @@ var cleanCmd = &cobra.Command{
 
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
+
 		// init core
 		if !initialized {
 			initCore(true)
@@ -84,7 +86,7 @@ var cleanCmd = &cobra.Command{
 		log.Infof("Initialized client %q, type: %s (%d trackers)", clientName, c.Type(), tracker.Loaded())
 
 		// connect to client
-		if err := c.Connect(); err != nil {
+		if err := c.Connect(ctx); err != nil {
 			log.WithError(err).Fatal("Failed connecting")
 		} else {
 			log.Debugf("Connected to client")
@@ -94,7 +96,7 @@ var cleanCmd = &cobra.Command{
 		switch *clientType {
 		case "qbittorrent":
 			// For qBittorrent, we can get free space without a path
-			space, err := c.GetCurrentFreeSpace("")
+			space, err := c.GetCurrentFreeSpace(nil, "")
 			if err != nil {
 				log.WithError(err).Error("Failed retrieving free-space")
 			} else {
@@ -104,7 +106,7 @@ var cleanCmd = &cobra.Command{
 
 		case "deluge":
 			if clientFreeSpacePath != nil {
-				space, err := c.GetCurrentFreeSpace(*clientFreeSpacePath)
+				space, err := c.GetCurrentFreeSpace(nil, *clientFreeSpacePath)
 				if err != nil {
 					log.WithError(err).Errorf("Failed retrieving free-space for: %q", *clientFreeSpacePath)
 					os.Exit(1)
@@ -123,7 +125,7 @@ var cleanCmd = &cobra.Command{
 		}
 
 		// retrieve torrents
-		torrents, err := c.GetTorrents()
+		torrents, err := c.GetTorrents(ctx)
 		if err != nil {
 			log.WithError(err).Fatal("Failed retrieving torrents")
 		} else {
@@ -170,7 +172,7 @@ var cleanCmd = &cobra.Command{
 		}
 
 		// remove torrents that are not ignored and match remove criteria
-		if err := removeEligibleTorrents(log, c, torrents, tfm, hfm, clientFilter); err != nil {
+		if err := removeEligibleTorrents(ctx, log, c, torrents, tfm, hfm, clientFilter); err != nil {
 			log.WithError(err).Fatal("Failed removing eligible torrents...")
 		}
 	},

@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -42,7 +43,7 @@ func (c *BHD) Check(host string) bool {
 	return strings.Contains(host, "beyond-hd.me")
 }
 
-func (c *BHD) IsUnregistered(torrent *Torrent) (error, bool) {
+func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
 	type Request struct {
 		Hash   string `json:"info_hash"`
 		Action string `json:"action"`
@@ -68,7 +69,7 @@ func (c *BHD) IsUnregistered(torrent *Torrent) (error, bool) {
 	}
 
 	// send request
-	resp, err := rek.Post(url, rek.Client(c.http), rek.Json(payload))
+	resp, err := rek.Post(url, rek.Client(c.http), rek.Json(payload), rek.Context(ctx))
 	if err != nil {
 		c.log.WithError(err).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
 		return fmt.Errorf("bhd: request search: %w", err), false
@@ -93,6 +94,6 @@ func (c *BHD) IsUnregistered(torrent *Torrent) (error, bool) {
 	return nil, b.TotalResults < 1
 }
 
-func (c *BHD) IsTrackerDown(torrent *Torrent) (error, bool) {
+func (c *BHD) IsTrackerDown(_ *Torrent) (error, bool) {
 	return nil, false
 }

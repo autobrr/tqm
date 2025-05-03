@@ -2,6 +2,7 @@ package tracker
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -60,7 +61,7 @@ func (c *BTN) extractTorrentID(comment string) (string, error) {
 	return matches[1], nil
 }
 
-func (c *BTN) IsUnregistered(torrent *Torrent) (error, bool) {
+func (c *BTN) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
 	if !strings.EqualFold(torrent.TrackerName, "landof.tv") || torrent.Comment == "" {
 		return nil, false
 	}
@@ -165,6 +166,6 @@ func (c *BTN) IsUnregistered(torrent *Torrent) (error, bool) {
 	return nil, true
 }
 
-func (c *BTN) IsTrackerDown(torrent *Torrent) (error, bool) {
+func (c *BTN) IsTrackerDown(_ *Torrent) (error, bool) {
 	return nil, false
 }

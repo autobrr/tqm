@@ -24,6 +24,8 @@ var relabelCmd = &cobra.Command{
 
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
+
 		// init core
 		if !initialized {
 			initCore(true)
@@ -82,7 +84,7 @@ var relabelCmd = &cobra.Command{
 		log.Infof("Initialized client %q, type: %s (%d trackers)", clientName, c.Type(), tracker.Loaded())
 
 		// connect to client
-		if err := c.Connect(); err != nil {
+		if err := c.Connect(ctx); err != nil {
 			log.WithError(err).Fatal("Failed connecting")
 		} else {
 			log.Debugf("Connected to client")
@@ -90,7 +92,7 @@ var relabelCmd = &cobra.Command{
 
 		// get free disk space (can/will be used by filters)
 		if clientFreeSpacePath != nil {
-			space, err := c.GetCurrentFreeSpace(*clientFreeSpacePath)
+			space, err := c.GetCurrentFreeSpace(ctx, *clientFreeSpacePath)
 			if err != nil {
 				log.WithError(err).Errorf("Failed retrieving free-space for: %q", *clientFreeSpacePath)
 			} else {
@@ -99,7 +101,7 @@ var relabelCmd = &cobra.Command{
 			}
 		} else if *clientType == "qbittorrent" {
 			// For qBittorrent, we can get free space without a path
-			space, err := c.GetCurrentFreeSpace("")
+			space, err := c.GetCurrentFreeSpace(ctx, "")
 			if err != nil {
 				log.WithError(err).Error("Failed retrieving free-space")
 			} else {
@@ -109,12 +111,12 @@ var relabelCmd = &cobra.Command{
 		}
 
 		// load client label path map
-		if err := c.LoadLabelPathMap(); err != nil {
+		if err := c.LoadLabelPathMap(ctx); err != nil {
 			log.WithError(err).Fatal("Failed loading label path map")
 		}
 
 		// retrieve torrents
-		torrents, err := c.GetTorrents()
+		torrents, err := c.GetTorrents(ctx)
 		if err != nil {
 			log.WithError(err).Fatal("Failed retrieving torrents")
 		} else {
@@ -159,7 +161,7 @@ var relabelCmd = &cobra.Command{
 		}
 
 		// relabel torrents that meet the filter criteria
-		if err := relabelEligibleTorrents(log, c, torrents, tfm); err != nil {
+		if err := relabelEligibleTorrents(ctx, log, c, torrents, tfm); err != nil {
 			log.WithError(err).Fatal("Failed relabeling eligible torrents...")
 		}
 	},

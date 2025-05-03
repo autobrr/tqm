@@ -16,7 +16,6 @@ import (
 	"github.com/autobrr/tqm/pkg/tracker"
 )
 
-
 var retagCmd = &cobra.Command{
 	Use:   "retag [CLIENT]",
 	Short: "Check client (only qbit) for torrents to retag",
@@ -24,6 +23,7 @@ var retagCmd = &cobra.Command{
 
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx := cmd.Context()
 		// init core
 		if !initialized {
 			initCore(true)
@@ -92,7 +92,7 @@ var retagCmd = &cobra.Command{
 		log.Infof("Initialized client %q, type: %s (%d trackers)", clientName, ct.Type(), tracker.Loaded())
 
 		// connect to client
-		if err := ct.Connect(); err != nil {
+		if err := ct.Connect(ctx); err != nil {
 			log.WithError(err).Fatal("Failed connecting")
 		} else {
 			log.Debugf("Connected to client")
@@ -100,7 +100,7 @@ var retagCmd = &cobra.Command{
 
 		// get free disk space (can/will be used by filters)
 		if clientFreeSpacePath != nil {
-			space, err := ct.GetCurrentFreeSpace(*clientFreeSpacePath)
+			space, err := ct.GetCurrentFreeSpace(ctx, *clientFreeSpacePath)
 			if err != nil {
 				log.WithError(err).Errorf("Failed retrieving free-space for: %q", *clientFreeSpacePath)
 			} else {
@@ -109,7 +109,7 @@ var retagCmd = &cobra.Command{
 			}
 		} else if *clientType == "qbittorrent" {
 			// For qBittorrent, we can get free space without a path
-			space, err := ct.GetCurrentFreeSpace("")
+			space, err := ct.GetCurrentFreeSpace(ctx, "")
 			if err != nil {
 				log.WithError(err).Error("Failed retrieving free-space")
 			} else {
@@ -119,7 +119,7 @@ var retagCmd = &cobra.Command{
 		}
 
 		// retrieve torrents
-		torrents, err := ct.GetTorrents()
+		torrents, err := ct.GetTorrents(ctx)
 		if err != nil {
 			log.WithError(err).Fatal("Failed retrieving torrents")
 		} else {
@@ -164,14 +164,14 @@ var retagCmd = &cobra.Command{
 		for _, v := range exp.Tags {
 			tagList = append(tagList, v.Name)
 		}
-		if err := ct.CreateTags(tagList); err != nil {
+		if err := ct.CreateTags(ctx, tagList); err != nil {
 			log.WithError(err).Fatal("Failed to create tags on client")
 		} else {
 			log.Infof("Verified tags exist on client")
 		}
 
 		// relabel torrents that meet the filter criteria
-		if err := retagEligibleTorrents(log, ct, torrents); err != nil {
+		if err := retagEligibleTorrents(ctx, log, ct, torrents); err != nil {
 			log.WithError(err).Fatal("Failed retagging eligible torrents...")
 		}
 	},

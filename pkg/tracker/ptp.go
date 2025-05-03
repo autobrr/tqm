@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -49,7 +50,7 @@ func (c *PTP) Check(host string) bool {
 	return strings.Contains(host, "passthepopcorn.me")
 }
 
-func (c *PTP) IsUnregistered(torrent *Torrent) (error, bool) {
+func (c *PTP) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
 	type Response struct {
 		Result        string `json:"Result"`
 		ResultDetails string `json:"ResultDetails"`
@@ -64,7 +65,7 @@ func (c *PTP) IsUnregistered(torrent *Torrent) (error, bool) {
 	}
 
 	// send request
-	resp, err := rek.Get(reqURL, rek.Client(c.http), rek.Headers(c.headers))
+	resp, err := rek.Get(reqURL, rek.Client(c.http), rek.Headers(c.headers), rek.Context(ctx))
 	if err != nil {
 		c.log.WithError(err).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
 		return fmt.Errorf("ptp: request search: %w", err), false
@@ -89,6 +90,6 @@ func (c *PTP) IsUnregistered(torrent *Torrent) (error, bool) {
 	return nil, b.Result == "ERROR" && b.ResultDetails == "Unregistered Torrent"
 }
 
-func (c *PTP) IsTrackerDown(torrent *Torrent) (error, bool) {
+func (c *PTP) IsTrackerDown(_ *Torrent) (error, bool) {
 	return nil, false
 }

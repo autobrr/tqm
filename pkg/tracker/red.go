@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -42,7 +43,7 @@ func (c *RED) Check(host string) bool {
 	return strings.Contains(host, "flacsfor.me")
 }
 
-func (c *RED) IsUnregistered(torrent *Torrent) (error, bool) {
+func (c *RED) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
 	//c.log.Infof("Checking RED torrent: %s", torrent.Name)
 
 	type Response struct {
@@ -66,6 +67,7 @@ func (c *RED) IsUnregistered(torrent *Torrent) (error, bool) {
 		rek.Headers(map[string]string{
 			"Authorization": c.cfg.Key,
 		}),
+		rek.Context(ctx),
 	)
 	if err != nil {
 		if resp == nil {
@@ -93,6 +95,6 @@ func (c *RED) IsUnregistered(torrent *Torrent) (error, bool) {
 	return nil, b.Status == "failure" && b.Error == "bad hash parameter"
 }
 
-func (c *RED) IsTrackerDown(torrent *Torrent) (error, bool) {
+func (c *RED) IsTrackerDown(_ *Torrent) (error, bool) {
 	return nil, false
 }

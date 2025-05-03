@@ -1,27 +1,28 @@
 package client
 
 import (
+	"context"
 	"github.com/autobrr/tqm/pkg/config"
 )
 
 type Interface interface {
 	Type() string
-	Connect() error
-	GetTorrents() (map[string]config.Torrent, error)
-	RemoveTorrent(string, bool) (bool, error)
-	SetTorrentLabel(hash string, label string, hardlink bool) error
-	GetCurrentFreeSpace(string) (int64, error)
+	Connect(ctx context.Context) error
+	GetTorrents(ctx context.Context) (map[string]config.Torrent, error)
+	RemoveTorrent(ctx context.Context, hash string, deleteData bool) (bool, error)
+	SetTorrentLabel(ctx context.Context, hash string, label string, hardlink bool) error
+	GetCurrentFreeSpace(ctx context.Context, path string) (int64, error)
 	AddFreeSpace(int64)
 	GetFreeSpace() float64
-	LoadLabelPathMap() error
+	LoadLabelPathMap(ctx context.Context) error
 	LabelPathMap() map[string]string
 
-	SetUploadLimit(hash string, limit int64) error
+	SetUploadLimit(ctx context.Context, hash string, limit int64) error
 
 	ShouldIgnore(*config.Torrent) (bool, error)
 	ShouldRemove(*config.Torrent) (bool, error)
 	CheckTorrentPause(*config.Torrent) (bool, error)
 	ShouldRelabel(*config.Torrent) (string, bool, error)
 
-	PauseTorrents([]string) error
+	PauseTorrents(ctx context.Context, hashes []string) error
 }

@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -42,7 +43,7 @@ func (c *OPS) Check(host string) bool {
 	return strings.Contains(host, "opsfet.ch")
 }
 
-func (c *OPS) IsUnregistered(torrent *Torrent) (error, bool) {
+func (c *OPS) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
 	//c.log.Infof("Checking OPS torrent: %s", torrent.Name)
 
 	type Response struct {
@@ -64,6 +65,7 @@ func (c *OPS) IsUnregistered(torrent *Torrent) (error, bool) {
 		rek.Headers(map[string]string{
 			"Authorization": fmt.Sprintf("token %s", c.cfg.Key),
 		}),
+		rek.Context(ctx),
 	)
 	if err != nil {
 		if resp == nil {
@@ -91,6 +93,6 @@ func (c *OPS) IsUnregistered(torrent *Torrent) (error, bool) {
 	return nil, b.Status == "failure" && b.Error == "bad parameters"
 }
 
-func (c *OPS) IsTrackerDown(torrent *Torrent) (error, bool) {
+func (c *OPS) IsTrackerDown(_ *Torrent) (error, bool) {
 	return nil, false
 }

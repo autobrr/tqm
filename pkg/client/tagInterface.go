@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"github.com/autobrr/tqm/pkg/config"
 )
 
@@ -14,8 +15,8 @@ type TagInterface interface {
 	Interface
 
 	ShouldRetag(*config.Torrent) (RetagInfo, error)
-	AddTags(string, []string) error
-	RemoveTags(string, []string) error
-	CreateTags([]string) error
-	DeleteTags([]string) error
+	AddTags(ctx context.Context, hash string, tags []string) error
+	RemoveTags(ctx context.Context, hash string, tags []string) error
+	CreateTags(ctx context.Context, tags []string) error
+	DeleteTags(ctx context.Context, tags []string) error
 }

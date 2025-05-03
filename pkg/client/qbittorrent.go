@@ -85,7 +85,7 @@ func (c *QBittorrent) Type() string {
 	return c.clientType
 }
 
-func (c *QBittorrent) Connect() error {
+func (c *QBittorrent) Connect(context.Context) error {
 	// login
 	if err := c.client.Login(); err != nil {
 		return fmt.Errorf("login: %w", err)
@@ -105,13 +105,13 @@ func (c *QBittorrent) Connect() error {
 	return nil
 }
 
-func (c *QBittorrent) LoadLabelPathMap() error {
-	p, err := c.client.GetAppPreferences()
+func (c *QBittorrent) LoadLabelPathMap(ctx context.Context) error {
+	p, err := c.client.GetAppPreferencesCtx(ctx)
 	if err != nil {
 		return fmt.Errorf("get app preferences: %w", err)
 	}
 
-	cats, err := c.client.GetCategories()
+	cats, err := c.client.GetCategoriesCtx(ctx)
 	if err != nil {
 		return fmt.Errorf("get categories: %w", err)
 	}
@@ -138,10 +138,10 @@ func (c *QBittorrent) LabelPathMap() map[string]string {
 	return c.labelPathMap
 }
 
-func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
+func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torrent, error) {
 	// retrieve torrents from client
 	c.log.Tracef("Retrieving torrents...")
-	t, err := c.client.GetTorrents(qbit.TorrentFilterOptions{IncludeTrackers: true})
+	t, err := c.client.GetTorrentsCtx(ctx, qbit.TorrentFilterOptions{IncludeTrackers: true})
 	if err != nil {
 		return nil, fmt.Errorf("get torrents: %w", err)
 	}
@@ -152,12 +152,12 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 	for _, t := range t {
 		// get additional torrent details
 		//td, err := c.client.Torrent.GetProperties(t.Hash)
-		td, err := c.client.GetTorrentProperties(t.Hash)
+		td, err := c.client.GetTorrentPropertiesCtx(ctx, t.Hash)
 		if err != nil {
 			return nil, fmt.Errorf("get torrent properties: %v: %w", t.Hash, err)
 		}
 
-		tf, err := c.client.GetFilesInformation(t.Hash)
+		tf, err := c.client.GetFilesInformationCtx(ctx, t.Hash)
 		if err != nil {
 			return nil, fmt.Errorf("get torrent files: %v: %w", t.Hash, err)
 		}
@@ -172,7 +172,7 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 
 		// in qBittorrent v5.1+ we can use includeTrackers to populate trackers, but in older versions we need to fetch trackers per torrent
 		if len(t.Trackers) == 0 {
-			ts, err := c.client.GetTorrentTrackers(t.Hash)
+			ts, err := c.client.GetTorrentTrackersCtx(ctx, t.Hash)
 			if err != nil {
 				return nil, fmt.Errorf("get torrent trackers: %v: %w", t.Hash, err)
 			}
@@ -258,23 +258,23 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 	return torrents, nil
 }
 
-func (c *QBittorrent) RemoveTorrent(hash string, deleteData bool) (bool, error) {
+func (c *QBittorrent) RemoveTorrent(ctx context.Context, hash string, deleteData bool) (bool, error) {
 	// pause torrent
-	if err := c.client.Pause([]string{hash}); err != nil {
+	if err := c.client.PauseCtx(ctx, []string{hash}); err != nil {
 		return false, fmt.Errorf("pause torrent: %v: %w", hash, err)
 	}
 
 	time.Sleep(1 * time.Second)
 
 	// resume torrent
-	if err := c.client.Resume([]string{hash}); err != nil {
+	if err := c.client.ResumeCtx(ctx, []string{hash}); err != nil {
 		return false, fmt.Errorf("resume torrent: %v: %w", hash, err)
 	}
 
 	// sleep before re-announcing torrent
 	time.Sleep(2 * time.Second)
 
-	if err := c.client.ReAnnounceTorrents([]string{hash}); err != nil {
+	if err := c.client.ReAnnounceTorrentsCtx(ctx, []string{hash}); err != nil {
 		return false, fmt.Errorf("re-announce torrent: %v: %w", hash, err)
 	}
 
@@ -282,14 +282,14 @@ func (c *QBittorrent) RemoveTorrent(hash string, deleteData bool) (bool, error) 
 	time.Sleep(2 * time.Second)
 
 	// remove
-	if err := c.client.DeleteTorrents([]string{hash}, deleteData); err != nil {
+	if err := c.client.DeleteTorrentsCtx(ctx, []string{hash}, deleteData); err != nil {
 		return false, fmt.Errorf("delete torrent: %v: %w", hash, err)
 	}
 
 	return true, nil
 }
 
-func (c *QBittorrent) SetTorrentLabel(hash string, label string, hardlink bool) error {
+func (c *QBittorrent) SetTorrentLabel(ctx context.Context, hash string, label string, hardlink bool) error {
 	if hardlink {
 		// get label path
 		lp := c.labelPathMap[label]
@@ -298,14 +298,14 @@ func (c *QBittorrent) SetTorrentLabel(hash string, label string, hardlink bool) 
 		}
 
 		// get torrent details
-		td, err := c.client.GetTorrentProperties(hash)
+		td, err := c.client.GetTorrentPropertiesCtx(ctx, hash)
 		if err != nil {
 			return fmt.Errorf("get torrent properties: %w", err)
 		}
 
 		if filepath.Clean(td.SavePath) != filepath.Clean(lp) {
 			// get torrent files
-			tf, err := c.client.GetFilesInformation(hash)
+			tf, err := c.client.GetFilesInformationCtx(ctx, hash)
 			if err != nil {
 				return fmt.Errorf("get torrent files: %w", err)
 			}
@@ -333,22 +333,22 @@ func (c *QBittorrent) SetTorrentLabel(hash string, label string, hardlink bool) 
 		// qbit force moves the files, overwriting existing files
 		// manually settings location, and then setting category works
 		// and causes qbit to recheck instead of move
-		if err := c.client.SetAutoManagement([]string{hash}, false); err != nil {
+		if err := c.client.SetAutoManagementCtx(ctx, []string{hash}, false); err != nil {
 			return fmt.Errorf("set automatic management: %w", err)
 		}
-		if err := c.client.SetLocation([]string{hash}, lp); err != nil {
+		if err := c.client.SetLocationCtx(ctx, []string{hash}, lp); err != nil {
 			return fmt.Errorf("set location: %w", err)
 		}
 	}
 
 	// set label
-	if err := c.client.SetCategory([]string{hash}, label); err != nil {
+	if err := c.client.SetCategoryCtx(ctx, []string{hash}, label); err != nil {
 		return fmt.Errorf("set torrent label: %v: %w", label, err)
 	}
 
 	// enable autotmm
 	if c.EnableAutoTmmAfterRelabel && !hardlink {
-		if err := c.client.SetAutoManagement([]string{hash}, true); err != nil {
+		if err := c.client.SetAutoManagementCtx(ctx, []string{hash}, true); err != nil {
 			return fmt.Errorf("enable autotmm: %w", err)
 		}
 	}
@@ -356,9 +356,7 @@ func (c *QBittorrent) SetTorrentLabel(hash string, label string, hardlink bool) 
 	return nil
 }
 
-func (c *QBittorrent) SetUploadLimit(hash string, limit int64) error {
-
-	ctx := context.Background()
+func (c *QBittorrent) SetUploadLimit(ctx context.Context, hash string, limit int64) error {
 	err := c.client.SetTorrentUploadLimitCtx(ctx, []string{hash}, limit)
 	if err != nil {
 		return fmt.Errorf("set upload limit for %s: %w", hash, err)
@@ -368,9 +366,9 @@ func (c *QBittorrent) SetUploadLimit(hash string, limit int64) error {
 	return nil
 }
 
-func (c *QBittorrent) GetCurrentFreeSpace(path string) (int64, error) {
+func (c *QBittorrent) GetCurrentFreeSpace(ctx context.Context, path string) (int64, error) {
 	// get current main stats
-	data, err := c.client.SyncMainDataCtx(context.Background(), 0)
+	data, err := c.client.SyncMainDataCtx(ctx, 0)
 	if err != nil {
 		return 0, fmt.Errorf("get main data: %w", err)
 	}
@@ -436,8 +434,8 @@ func (c *QBittorrent) CheckTorrentPause(t *config.Torrent) (bool, error) {
 	return match, nil
 }
 
-func (c *QBittorrent) PauseTorrents(hashes []string) error {
-	if err := c.client.Pause(hashes); err != nil {
+func (c *QBittorrent) PauseTorrents(ctx context.Context, hashes []string) error {
+	if err := c.client.PauseCtx(ctx, hashes); err != nil {
 		return fmt.Errorf("pause torrents: %v: %w", hashes, err)
 	}
 	return nil
@@ -478,48 +476,48 @@ func (c *QBittorrent) ShouldRetag(t *config.Torrent) (RetagInfo, error) {
 	return retagInfo, nil
 }
 
-func (c *QBittorrent) AddTags(hash string, tags []string) error {
+func (c *QBittorrent) AddTags(ctx context.Context, hash string, tags []string) error {
 	if len(tags) == 0 {
 		return nil
 	}
 
-	if err := c.client.AddTags([]string{hash}, strings.Join(tags, ",")); err != nil {
+	if err := c.client.AddTagsCtx(ctx, []string{hash}, strings.Join(tags, ",")); err != nil {
 		return fmt.Errorf("add torrent tags: %v: %w", tags, err)
 	}
 
 	return nil
 }
 
-func (c *QBittorrent) RemoveTags(hash string, tags []string) error {
+func (c *QBittorrent) RemoveTags(ctx context.Context, hash string, tags []string) error {
 	if len(tags) == 0 {
 		return nil
 	}
 
-	if err := c.client.RemoveTags([]string{hash}, strings.Join(tags, ",")); err != nil {
+	if err := c.client.RemoveTagsCtx(ctx, []string{hash}, strings.Join(tags, ",")); err != nil {
 		return fmt.Errorf("add torrent tags: %v: %w", tags, err)
 	}
 
 	return nil
 }
 
-func (c *QBittorrent) CreateTags(tags []string) error {
+func (c *QBittorrent) CreateTags(ctx context.Context, tags []string) error {
 	if len(tags) == 0 {
 		return nil
 	}
 
-	if err := c.client.CreateTags(tags); err != nil {
+	if err := c.client.CreateTagsCtx(ctx, tags); err != nil {
 		return fmt.Errorf("create torrent tags: %v: %w", tags, err)
 	}
 
 	return nil
 }
 
-func (c *QBittorrent) DeleteTags(tags []string) error {
+func (c *QBittorrent) DeleteTags(ctx context.Context, tags []string) error {
 	if len(tags) == 0 {
 		return nil
 	}
 
-	if err := c.client.DeleteTags(tags); err != nil {
+	if err := c.client.DeleteTagsCtx(ctx, tags); err != nil {
 		return fmt.Errorf("delete torrent tags: %v: %w", tags, err)
 	}
 

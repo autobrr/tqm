@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -43,7 +44,7 @@ func (c *HDB) Check(host string) bool {
 	return strings.Contains(host, "hdbits.org")
 }
 
-func (c *HDB) IsUnregistered(torrent *Torrent) (error, bool) {
+func (c *HDB) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
 	//c.log.Infof("Checking HDB torrent: %s", torrent.Name)
 
 	type Request struct {
@@ -75,6 +76,7 @@ func (c *HDB) IsUnregistered(torrent *Torrent) (error, bool) {
 	resp, err := rek.Post("https://hdbits.org/api/torrents",
 		rek.Client(c.http),
 		rek.Json(reqBody),
+		rek.Context(ctx),
 	)
 	if err != nil {
 		if resp == nil {
@@ -104,6 +106,6 @@ func (c *HDB) IsUnregistered(torrent *Torrent) (error, bool) {
 	return nil, b.Status == 0 && len(b.Data) == 0
 }
 
-func (c *HDB) IsTrackerDown(torrent *Torrent) (error, bool) {
+func (c *HDB) IsTrackerDown(_ *Torrent) (error, bool) {
 	return nil, false
 }

@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -69,7 +70,7 @@ func (c *UNIT3D) extractTorrentID(comment string) (string, error) {
 	return matches[1], nil
 }
 
-func (c *UNIT3D) IsUnregistered(torrent *Torrent) (error, bool) {
+func (c *UNIT3D) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
 	if !strings.EqualFold(torrent.TrackerName, c.cfg.Domain) {
 		return nil, false
 	}
@@ -107,6 +108,7 @@ func (c *UNIT3D) IsUnregistered(torrent *Torrent) (error, bool) {
 	resp, err := rek.Get(url,
 		rek.Client(c.http),
 		rek.Headers(c.headers),
+		rek.Context(ctx),
 	)
 	if err != nil {
 		if resp == nil {

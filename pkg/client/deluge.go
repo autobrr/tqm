@@ -1,12 +1,13 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"time"
 
+	delugeclient "github.com/autobrr/go-deluge"
 	"github.com/dustin/go-humanize"
-	delugeclient "github.com/gdm85/go-libdeluge"
 	"github.com/sirupsen/logrus"
 
 	"github.com/autobrr/tqm/pkg/config"
@@ -80,16 +81,16 @@ func (c *Deluge) Type() string {
 	return c.clientType
 }
 
-func (c *Deluge) Connect() error {
+func (c *Deluge) Connect(ctx context.Context) error {
 	var err error
 
 	// connect to deluge daemon
 	c.log.Tracef("Connecting to %s:%d", *c.Host, *c.Port)
 
 	if c.V2 {
-		err = c.client2.Connect()
+		err = c.client2.Connect(ctx)
 	} else {
-		err = c.client1.Connect()
+		err = c.client1.Connect(ctx)
 
 	}
 
@@ -101,9 +102,9 @@ func (c *Deluge) Connect() error {
 	var lc *delugeclient.LabelPlugin
 
 	if c.V2 {
-		lc, err = c.client2.LabelPlugin()
+		lc, err = c.client2.LabelPlugin(ctx)
 	} else {
-		lc, err = c.client1.LabelPlugin()
+		lc, err = c.client1.LabelPlugin(ctx)
 	}
 
 	if err != nil {
@@ -111,7 +112,7 @@ func (c *Deluge) Connect() error {
 	}
 
 	// retrieve daemon version
-	daemonVersion, err := lc.DaemonVersion()
+	daemonVersion, err := lc.DaemonVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("get daemon version: %w", err)
 	}
@@ -121,7 +122,7 @@ func (c *Deluge) Connect() error {
 	return nil
 }
 
-func (c *Deluge) LoadLabelPathMap() error {
+func (c *Deluge) LoadLabelPathMap(context.Context) error {
 	// @TODO: implement
 	return nil
 }
@@ -130,10 +131,10 @@ func (c *Deluge) LabelPathMap() map[string]string {
 	return nil
 }
 
-func (c *Deluge) GetTorrents() (map[string]config.Torrent, error) {
+func (c *Deluge) GetTorrents(ctx context.Context) (map[string]config.Torrent, error) {
 	// retrieve torrents from client
 	c.log.Tracef("Retrieving torrents...")
-	t, err := c.client.TorrentsStatus(delugeclient.StateUnspecified, nil)
+	t, err := c.client.TorrentsStatus(ctx, delugeclient.StateUnspecified, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get torrents: %w", err)
 	}
@@ -202,16 +203,16 @@ func (c *Deluge) GetTorrents() (map[string]config.Torrent, error) {
 	return torrents, nil
 }
 
-func (c *Deluge) RemoveTorrent(hash string, deleteData bool) (bool, error) {
+func (c *Deluge) RemoveTorrent(ctx context.Context, hash string, deleteData bool) (bool, error) {
 	// pause torrent
-	if err := c.client.PauseTorrents(hash); err != nil {
+	if err := c.client.PauseTorrents(ctx, hash); err != nil {
 		return false, fmt.Errorf("pause torrent: %v: %w", hash, err)
 	}
 
 	time.Sleep(1 * time.Second)
 
 	// resume torrent
-	if err := c.client.ResumeTorrents(hash); err != nil {
+	if err := c.client.ResumeTorrents(ctx, hash); err != nil {
 		return false, fmt.Errorf("resume torrent: %v: %w", hash, err)
 	}
 
@@ -219,7 +220,7 @@ func (c *Deluge) RemoveTorrent(hash string, deleteData bool) (bool, error) {
 	time.Sleep(2 * time.Second)
 
 	// re-announce torrent
-	if err := c.client.ForceReannounce([]string{hash}); err != nil {
+	if err := c.client.ForceReannounce(ctx, []string{hash}); err != nil {
 		return false, fmt.Errorf("re-announce torrent: %v: %w", hash, err)
 	}
 
@@ -227,7 +228,7 @@ func (c *Deluge) RemoveTorrent(hash string, deleteData bool) (bool, error) {
 	time.Sleep(2 * time.Second)
 
 	// remove
-	if ok, err := c.client.RemoveTorrent(hash, deleteData); err != nil {
+	if ok, err := c.client.RemoveTorrent(ctx, hash, deleteData); err != nil {
 		return false, fmt.Errorf("remove torrent: %v: %w", hash, err)
 	} else if !ok {
 		return false, fmt.Errorf("remove torrent: %v", hash)
@@ -236,27 +237,27 @@ func (c *Deluge) RemoveTorrent(hash string, deleteData bool) (bool, error) {
 	return true, nil
 }
 
-func (c *Deluge) SetTorrentLabel(hash string, label string, hardlink bool) error {
+func (c *Deluge) SetTorrentLabel(ctx context.Context, hash string, label string, hardlink bool) error {
 	// hardlink behaviour currently not tested for deluge
 	if hardlink {
 		return fmt.Errorf("hardlink relabeling not supported for deluge (yet)")
 	}
 
 	// set label
-	if err := c.client.SetTorrentLabel(hash, label); err != nil {
+	if err := c.client.SetTorrentLabel(ctx, hash, label); err != nil {
 		return fmt.Errorf("set torrent label: %v: %w", label, err)
 	}
 
 	return nil
 }
 
-func (c *Deluge) GetCurrentFreeSpace(path string) (int64, error) {
+func (c *Deluge) GetCurrentFreeSpace(ctx context.Context, path string) (int64, error) {
 	if path == "" {
 		return 0, fmt.Errorf("free_space_path is not set for deluge")
 	}
 
 	// get free disk space
-	space, err := c.client.GetFreeSpace(path)
+	space, err := c.client.GetFreeSpace(ctx, path)
 	if err != nil {
 		return 0, fmt.Errorf("get free disk space: %v: %w", path, err)
 	}
@@ -313,7 +314,7 @@ func (c *Deluge) ShouldRelabel(t *config.Torrent) (string, bool, error) {
 	return "", false, nil
 }
 
-func (c *Deluge) SetUploadLimit(hash string, limit int64) error {
+func (c *Deluge) SetUploadLimit(ctx context.Context, hash string, limit int64) error {
 	var uploadSpeed int
 	if limit == -1 {
 		uploadSpeed = -1
@@ -327,9 +328,9 @@ func (c *Deluge) SetUploadLimit(hash string, limit int64) error {
 
 	var err error
 	if c.V2 {
-		err = c.client2.SetTorrentOptions(hash, opts)
+		err = c.client2.SetTorrentOptions(ctx, hash, opts)
 	} else {
-		err = c.client1.SetTorrentOptions(hash, opts)
+		err = c.client1.SetTorrentOptions(ctx, hash, opts)
 	}
 
 	if err != nil {
@@ -349,12 +350,12 @@ func (c *Deluge) CheckTorrentPause(t *config.Torrent) (bool, error) {
 	return match, nil
 }
 
-func (c *Deluge) PauseTorrents(hashes []string) error {
+func (c *Deluge) PauseTorrents(ctx context.Context, hashes []string) error {
 	var err error
 	if c.V2 {
-		err = c.client2.PauseTorrents(hashes...)
+		err = c.client2.PauseTorrents(ctx, hashes...)
 	} else {
-		err = c.client1.PauseTorrents(hashes...)
+		err = c.client1.PauseTorrents(ctx, hashes...)
 	}
 
 	if err != nil {
