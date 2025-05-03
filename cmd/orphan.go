@@ -138,10 +138,10 @@ var orphanCmd = &cobra.Command{
 
 		var wg sync.WaitGroup
 		var mu sync.Mutex
-		var atomicRemoveFailures uint32
-		var atomicRemovedLocalFiles uint32
-		var atomicIgnoredLocalFiles uint32
-		var atomicRemovedLocalFilesSize uint64
+		var removeFailures atomic.Uint32
+		var removedLocalFiles atomic.Uint32
+		var ignoredLocalFiles atomic.Uint32
+		var removedLocalFilesSize atomic.Uint64
 
 		filter, err := getClientFilter(clientConfig)
 		if err != nil {
@@ -169,7 +169,7 @@ var orphanCmd = &cobra.Command{
 				mu.Lock()
 				log.Debugf("File matches a path in the ignore list, skipping removal: %q", localPath)
 				mu.Unlock()
-				atomic.AddUint32(&atomicIgnoredLocalFiles, 1)
+				ignoredLocalFiles.Add(1)
 				return
 			}
 
@@ -205,7 +205,7 @@ var orphanCmd = &cobra.Command{
 					mu.Lock()
 					log.WithError(err).Errorf("Failed removing orphan...")
 					mu.Unlock()
-					atomic.AddUint32(&atomicRemoveFailures, 1)
+					removeFailures.Add(1)
 					removed = false
 				} else {
 					mu.Lock()
@@ -215,8 +215,8 @@ var orphanCmd = &cobra.Command{
 			}
 
 			if removed {
-				atomic.AddUint64(&atomicRemovedLocalFilesSize, uint64(localPathSize))
-				atomic.AddUint32(&atomicRemovedLocalFiles, 1)
+				removedLocalFilesSize.Add(uint64(localPathSize))
+				removedLocalFiles.Add(1)
 			}
 		}, &wg)
 
@@ -266,7 +266,7 @@ var orphanCmd = &cobra.Command{
 				} else {
 					if err := os.Remove(localPath); err != nil {
 						log.WithError(err).Errorf("Failed removing empty orphan directory...")
-						atomic.AddUint32(&atomicRemoveFailures, 1)
+						removeFailures.Add(1)
 					} else {
 						log.Info("Removed empty orphan directory")
 						removed = true
@@ -279,15 +279,10 @@ var orphanCmd = &cobra.Command{
 			}
 		}
 
-		removeFailures := atomic.LoadUint32(&atomicRemoveFailures)
-		removedLocalFiles := atomic.LoadUint32(&atomicRemovedLocalFiles)
-		ignoredLocalFiles := atomic.LoadUint32(&atomicIgnoredLocalFiles)
-		removedLocalFilesSize := atomic.LoadUint64(&atomicRemovedLocalFilesSize)
-
 		log.Info("-----")
-		log.WithField("reclaimed_space", humanize.IBytes(removedLocalFilesSize)).
+		log.WithField("reclaimed_space", humanize.IBytes(removedLocalFilesSize.Load())).
 			Infof("Removed orphans: %d files, %d folders and %d failures. Ignored %d files and %d folders",
-				removedLocalFiles, removedLocalFolders, removeFailures, ignoredLocalFiles, ignoredLocalFolders)
+				removedLocalFiles.Load(), removedLocalFolders, removeFailures.Load(), ignoredLocalFiles.Load(), ignoredLocalFolders)
 	},
 }
 
