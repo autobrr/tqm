@@ -168,10 +168,10 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 
 		var trackers []qbit.TorrentTracker
 
+		trackers = t.Trackers
+
 		// in qBittorrent v5.1+ we can use includeTrackers to populate trackers, but in older versions we need to fetch trackers per torrent
-		if len(t.Trackers) > 0 {
-			trackers = t.Trackers
-		} else {
+		if len(t.Trackers) == 0 {
 			ts, err := c.client.GetTorrentTrackers(t.Hash)
 			if err != nil {
 				return nil, fmt.Errorf("get torrent trackers: %v: %w", t.Hash, err)
