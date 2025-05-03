@@ -96,7 +96,7 @@ var cleanCmd = &cobra.Command{
 		switch *clientType {
 		case "qbittorrent":
 			// For qBittorrent, we can get free space without a path
-			space, err := c.GetCurrentFreeSpace(nil, "")
+			space, err := c.GetCurrentFreeSpace(ctx, "")
 			if err != nil {
 				log.WithError(err).Error("Failed retrieving free-space")
 			} else {
@@ -106,7 +106,7 @@ var cleanCmd = &cobra.Command{
 
 		case "deluge":
 			if clientFreeSpacePath != nil {
-				space, err := c.GetCurrentFreeSpace(nil, *clientFreeSpacePath)
+				space, err := c.GetCurrentFreeSpace(ctx, *clientFreeSpacePath)
 				if err != nil {
 					log.WithError(err).Errorf("Failed retrieving free-space for: %q", *clientFreeSpacePath)
 					os.Exit(1)
