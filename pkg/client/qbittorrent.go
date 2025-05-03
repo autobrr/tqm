@@ -141,7 +141,7 @@ func (c *QBittorrent) LabelPathMap() map[string]string {
 func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 	// retrieve torrents from client
 	c.log.Tracef("Retrieving torrents...")
-	t, err := c.client.GetTorrents(qbit.TorrentFilterOptions{})
+	t, err := c.client.GetTorrents(qbit.TorrentFilterOptions{IncludeTrackers: true})
 	if err != nil {
 		return nil, fmt.Errorf("get torrents: %w", err)
 	}
@@ -150,18 +150,11 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 	// build torrent list
 	torrents := make(map[string]config.Torrent)
 	for _, t := range t {
-		t := t
-
 		// get additional torrent details
 		//td, err := c.client.Torrent.GetProperties(t.Hash)
 		td, err := c.client.GetTorrentProperties(t.Hash)
 		if err != nil {
 			return nil, fmt.Errorf("get torrent properties: %v: %w", t.Hash, err)
-		}
-
-		ts, err := c.client.GetTorrentTrackers(t.Hash)
-		if err != nil {
-			return nil, fmt.Errorf("get torrent trackers: %v: %w", t.Hash, err)
 		}
 
 		tf, err := c.client.GetFilesInformation(t.Hash)
@@ -173,7 +166,20 @@ func (c *QBittorrent) GetTorrents() (map[string]config.Torrent, error) {
 		trackerName := ""
 		trackerStatus := ""
 
-		for _, tracker := range ts {
+		var trackers []qbit.TorrentTracker
+
+		trackers = t.Trackers
+
+		// in qBittorrent v5.1+ we can use includeTrackers to populate trackers, but in older versions we need to fetch trackers per torrent
+		if len(t.Trackers) == 0 {
+			ts, err := c.client.GetTorrentTrackers(t.Hash)
+			if err != nil {
+				return nil, fmt.Errorf("get torrent trackers: %v: %w", t.Hash, err)
+			}
+			trackers = ts
+		}
+
+		for _, tracker := range trackers {
 			// skip disabled trackers
 			if strings.Contains(tracker.Url, "[DHT]") || strings.Contains(tracker.Url, "[LSD]") ||
 				strings.Contains(tracker.Url, "[PeX]") {

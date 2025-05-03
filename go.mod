@@ -5,7 +5,7 @@ go 1.24
 toolchain go1.24.2
 
 require (
-	github.com/autobrr/go-qbittorrent v1.12.0
+	github.com/autobrr/go-qbittorrent v1.13.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bobesa/go-domain-util v0.0.0-20190911083921-4033b5f7dd89
 	github.com/charlievieth/fastwalk v1.0.10
