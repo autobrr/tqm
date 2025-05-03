@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/autobrr/tqm/config"
-	"github.com/autobrr/tqm/torrentfilemap"
+	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/torrentfilemap"
 )
 
 func createTempDir(t *testing.T, baseDir, subPath string) string {

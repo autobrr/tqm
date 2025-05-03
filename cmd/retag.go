@@ -4,17 +4,18 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/autobrr/tqm/client"
-	"github.com/autobrr/tqm/config"
-	"github.com/autobrr/tqm/expression"
-	"github.com/autobrr/tqm/hardlinkfilemap"
-	"github.com/autobrr/tqm/logger"
-	"github.com/autobrr/tqm/sliceutils"
-	"github.com/autobrr/tqm/tracker"
-
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
+
+	"github.com/autobrr/tqm/pkg/client"
+	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/expression"
+	"github.com/autobrr/tqm/pkg/hardlinkfilemap"
+	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/sliceutils"
+	"github.com/autobrr/tqm/pkg/tracker"
 )
+
 
 var retagCmd = &cobra.Command{
 	Use:   "retag [CLIENT]",

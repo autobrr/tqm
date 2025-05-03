@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/autobrr/tqm/runtime"
+	"github.com/autobrr/tqm/pkg/runtime"
 )
 
 var versionCmd = &cobra.Command{
