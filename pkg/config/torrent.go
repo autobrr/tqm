@@ -92,7 +92,7 @@ var (
 		"unresolvable",
 		"host not found",
 		"offline",
-		"Your request could not be processed, please try again later",
+		"your request could not be processed, please try again later",
 	}
 )
 
