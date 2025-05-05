@@ -25,6 +25,23 @@ type BHD struct {
 	log  *logrus.Entry
 }
 
+type BHDAPIRequest struct {
+	Hash   string `json:"info_hash"`
+	Action string `json:"action"`
+}
+
+type BHDAPIResponse struct {
+	StatusCode int `json:"status_code"`
+	Page       int `json:"page"`
+	Results    []struct {
+		Name     string `json:"name"`
+		InfoHash string `json:"info_hash"`
+	} `json:"results"`
+	TotalPages   int  `json:"total_pages"`
+	TotalResults int  `json:"total_results"`
+	Success      bool `json:"success"`
+}
+
 func NewBHD(c BHDConfig) *BHD {
 	l := logger.GetLogger("bhd-api")
 	return &BHD{
@@ -43,29 +60,15 @@ func (c *BHD) Check(host string) bool {
 }
 
 func (c *BHD) IsUnregistered(torrent *Torrent) (error, bool) {
-	type Request struct {
-		Hash   string `json:"info_hash"`
-		Action string `json:"action"`
-	}
-
-	type Response struct {
-		StatusCode int `json:"status_code"`
-		Page       int `json:"page"`
-		Results    []struct {
-			Name     string `json:"name"`
-			InfoHash string `json:"info_hash"`
-		} `json:"results"`
-		TotalPages   int  `json:"total_pages"`
-		TotalResults int  `json:"total_results"`
-		Success      bool `json:"success"`
-	}
-
 	// prepare request
 	url := httputils.Join("https://beyond-hd.me/api/torrents", c.cfg.Key)
-	payload := &Request{
+	payload := &BHDAPIRequest{
 		Hash:   torrent.Hash,
 		Action: "search",
 	}
+
+	// Log API request details
+	c.log.Debugf("BHD API request for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
 	// send request
 	resp, err := rek.Post(url, rek.Client(c.http), rek.Json(payload))
@@ -75,22 +78,40 @@ func (c *BHD) IsUnregistered(torrent *Torrent) (error, bool) {
 	}
 	defer resp.Body().Close()
 
-	// validate response
+	// Check HTTP status code
 	if resp.StatusCode() != 200 {
-		c.log.WithError(err).Errorf("Failed validating search response for %s (hash: %s), response: %s",
+		c.log.Errorf("Failed API response for %s (hash: %s), response: %s",
 			torrent.Name, torrent.Hash, resp.Status())
-		return fmt.Errorf("bhd: validate search response: %s", resp.Status()), false
+		return fmt.Errorf("bhd: non-200 response: %s", resp.Status()), false
 	}
 
-	// decode response
-	b := new(Response)
+	// Read and parse the response
+	b := new(BHDAPIResponse)
 	if err := json.NewDecoder(resp.Body()).Decode(b); err != nil {
-		c.log.WithError(err).Errorf("Failed decoding search response for %s (hash: %s)",
+		// This covers both JSON parse errors (including HTML responses) in one check
+		c.log.WithError(err).Errorf("Failed decoding response for %s (hash: %s)",
 			torrent.Name, torrent.Hash)
-		return fmt.Errorf("bhd: decode search response: %w", err), false
+		return fmt.Errorf("bhd: decode response: %w", err), false
 	}
 
-	return nil, b.TotalResults < 1
+	// Verify API response structure
+	if !b.Success || b.StatusCode == 0 || b.Page == 0 {
+		c.log.Errorf("Invalid API response for %s (hash: %s): success=%t, status_code=%d, page=%d",
+			torrent.Name, torrent.Hash, b.Success, b.StatusCode, b.Page)
+		return fmt.Errorf("bhd: invalid API response"), false
+	}
+
+	// Final determination
+	isUnregistered := b.TotalResults < 1
+	if isUnregistered {
+		c.log.Infof("BHD API confirms torrent is UNREGISTERED: %s (hash: %s)",
+			torrent.Name, torrent.Hash)
+	} else {
+		c.log.Debugf("BHD API confirms torrent is registered: %s (hash: %s)",
+			torrent.Name, torrent.Hash)
+	}
+
+	return nil, isUnregistered
 }
 
 func (c *BHD) IsTrackerDown(torrent *Torrent) (error, bool) {
