@@ -127,11 +127,11 @@ var pauseCmd = &cobra.Command{
 		}
 
 		if flagLogLevel > 1 {
-			if b, err := json.Marshal(torrents); err != nil {
+			if _, err := json.Marshal(torrents); err != nil {
 				log.WithError(err).Error("Failed marshalling torrents")
-			} else {
-				log.Trace(string(b))
-			}
+			} //else {
+			//	log.Trace(string(b))
+			//}
 		}
 
 		var pauseList []string
