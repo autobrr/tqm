@@ -153,7 +153,7 @@ func (t *Torrent) IsTrackerDown() bool {
 	return false
 }
 
-// Initialize prepares the default status map and processes per-tracker overrides.
+// InitializeTrackerStatuses prepares the default status map and processes per-tracker overrides.
 // It should be called once after configuration is loaded.
 func InitializeTrackerStatuses(perTrackerOverrides map[string][]string) {
 	log := logger.GetLogger("cfg")
@@ -184,11 +184,11 @@ func InitializeTrackerStatuses(perTrackerOverrides map[string][]string) {
 }
 
 func (t *Torrent) IsUnregistered(ctx context.Context) bool {
-	if t.IsTrackerDown() {
+	if t.TrackerStatus == "" {
 		return false
 	}
 
-	if t.TrackerStatus == "" {
+	if t.IsTrackerDown() {
 		return false
 	}
 
@@ -219,7 +219,7 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 			Downloaded:      t.Downloaded,
 			Seeding:         t.Seeding,
 			TrackerName:     t.TrackerName,
-			TrackerStatus:   t.State,
+			TrackerStatus:   t.TrackerStatus,
 			Comment:         t.Comment,
 		}
 
