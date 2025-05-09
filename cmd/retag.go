@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -124,12 +123,6 @@ var retagCmd = &cobra.Command{
 			log.WithError(err).Fatal("Failed retrieving torrents")
 		} else {
 			log.Infof("Retrieved %d torrents", len(torrents))
-		}
-
-		if flagLogLevel > 1 {
-			if _, err := json.Marshal(torrents); err != nil {
-				log.WithError(err).Error("Failed marshalling torrents")
-			}
 		}
 
 		if sliceutils.StringSliceContains(clientFilter.MapHardlinksFor, "retag", true) {
