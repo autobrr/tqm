@@ -126,9 +126,7 @@ var relabelCmd = &cobra.Command{
 		if flagLogLevel > 1 {
 			if _, err := json.Marshal(torrents); err != nil {
 				log.WithError(err).Error("Failed marshalling torrents")
-			} //else {
-			//	log.Trace(string(b))
-			//}
+			}
 		}
 
 		// create map of files associated to torrents (via hash)
