@@ -35,7 +35,7 @@ func NewUNIT3D(name string, c UNIT3DConfig) Interface {
 
 	return &UNIT3D{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack), l),
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		headers: map[string]string{
 			"Authorization": fmt.Sprintf("Bearer %s", c.APIKey),
 			"Accept":        "application/json",

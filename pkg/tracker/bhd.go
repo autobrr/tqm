@@ -47,7 +47,7 @@ func NewBHD(c BHDConfig) *BHD {
 	l := logger.GetLogger("bhd-api")
 	return &BHD{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack), l),
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		log:  l,
 	}
 }

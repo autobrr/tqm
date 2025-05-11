@@ -31,7 +31,7 @@ func NewHDB(c HDBConfig) *HDB {
 	l := logger.GetLogger("hdb-api")
 	return &HDB{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack), l),
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		log:  l,
 	}
 }
