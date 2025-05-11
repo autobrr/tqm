@@ -76,6 +76,11 @@ func initCore(showAppInfo bool) {
 
 	log = logger.GetLogger("app")
 
+	// Show App Info
+	if showAppInfo {
+		showUsing()
+	}
+
 	// Init Config
 	if err := config.Init(flagConfigFile); err != nil {
 		log.WithError(err).Fatal("Failed to initialize config")
@@ -84,11 +89,6 @@ func initCore(showAppInfo bool) {
 	// Init Trackers
 	if err := tracker.Init(config.Config.Trackers); err != nil {
 		log.WithError(err).Fatal("Failed to initialize trackers")
-	}
-
-	// Show App Info
-	if showAppInfo {
-		showUsing()
 	}
 }
 
