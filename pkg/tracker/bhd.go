@@ -71,11 +71,26 @@ func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	// Log API request details
 	c.log.Debugf("BHD API request for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
+	// Helper function to sanitize errors that might contain the API key
+	sanitizeError := func(err error) error {
+		if err == nil {
+			return nil
+		}
+		errorMsg := err.Error()
+		if c.cfg.Key != "" && strings.Contains(errorMsg, c.cfg.Key) {
+			// Replace the API key with a placeholder
+			sanitized := strings.ReplaceAll(errorMsg, c.cfg.Key, "[API_KEY_REDACTED]")
+			return fmt.Errorf("%s", sanitized)
+		}
+		return err
+	}
+
 	// send request
 	resp, err := rek.Post(url, rek.Client(c.http), rek.Json(payload), rek.Context(ctx))
 	if err != nil {
-		c.log.WithError(err).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
-		return fmt.Errorf("bhd: request search: %w", err), false
+		safeErr := sanitizeError(err)
+		c.log.WithError(safeErr).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
+		return fmt.Errorf("bhd: request search: %w", safeErr), false
 	}
 	defer resp.Body().Close()
 
@@ -89,10 +104,10 @@ func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	// Read and parse the response
 	b := new(BHDAPIResponse)
 	if err := json.NewDecoder(resp.Body()).Decode(b); err != nil {
-		// This covers both JSON parse errors (including HTML responses) in one check
-		c.log.WithError(err).Errorf("Failed decoding response for %s (hash: %s)",
+		safeErr := sanitizeError(err)
+		c.log.WithError(safeErr).Errorf("Failed decoding response for %s (hash: %s)",
 			torrent.Name, torrent.Hash)
-		return fmt.Errorf("bhd: decode response: %w", err), false
+		return fmt.Errorf("bhd: decode response: %w", safeErr), false
 	}
 
 	// Verify API response structure
