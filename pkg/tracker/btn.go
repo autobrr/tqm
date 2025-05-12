@@ -33,7 +33,7 @@ func NewBTN(c BTNConfig) *BTN {
 	l := logger.GetLogger("btn-api")
 	return &BTN{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack), l),
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		log:  l,
 	}
 }

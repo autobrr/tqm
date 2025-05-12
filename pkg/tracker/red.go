@@ -30,7 +30,7 @@ func NewRED(c REDConfig) *RED {
 	l := logger.GetLogger("red-api")
 	return &RED{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack), l),
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		log:  l,
 	}
 }
