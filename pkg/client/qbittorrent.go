@@ -264,20 +264,6 @@ func (c *QBittorrent) RemoveTorrent(ctx context.Context, hash string, deleteData
 		return false, fmt.Errorf("pause torrent: %v: %w", hash, err)
 	}
 
-	time.Sleep(1 * time.Second)
-
-	// resume torrent
-	if err := c.client.ResumeCtx(ctx, []string{hash}); err != nil {
-		return false, fmt.Errorf("resume torrent: %v: %w", hash, err)
-	}
-
-	// sleep before re-announcing torrent
-	time.Sleep(2 * time.Second)
-
-	if err := c.client.ReAnnounceTorrentsCtx(ctx, []string{hash}); err != nil {
-		return false, fmt.Errorf("re-announce torrent: %v: %w", hash, err)
-	}
-
 	// sleep before removing torrent
 	time.Sleep(2 * time.Second)
 
