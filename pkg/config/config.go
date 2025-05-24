@@ -27,6 +27,7 @@ type Configuration struct {
 	Trackers                   tracker.Config
 	BypassIgnoreIfUnregistered bool
 	TrackerErrors              TrackerErrorsConfig `yaml:"tracker_errors" koanf:"tracker_errors"`
+	Notifications              NotificationsConfig `yaml:"notifications" koanf:"notifications"`
 }
 
 /* Vars */

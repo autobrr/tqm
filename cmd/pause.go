@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/dustin/go-humanize"
@@ -10,6 +11,7 @@ import (
 	"github.com/autobrr/tqm/pkg/config"
 	"github.com/autobrr/tqm/pkg/expression"
 	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/notification"
 	"github.com/autobrr/tqm/pkg/tracker"
 )
 
@@ -30,6 +32,8 @@ var pauseCmd = &cobra.Command{
 
 		// set log
 		log := logger.GetLogger("pause")
+
+		noti := notification.NewDiscordSender(log, config.Config.Notifications)
 
 		// retrieve client object
 		clientName := args[0]
@@ -125,7 +129,10 @@ var pauseCmd = &cobra.Command{
 			log.Infof("Retrieved %d torrents", len(torrents))
 		}
 
-		var pauseList []string
+		var (
+			pauseList []string
+			fields    []notification.DiscordEmbedsField
+		)
 
 		// iterate through torrents
 		for _, t := range torrents {
@@ -145,6 +152,9 @@ var pauseCmd = &cobra.Command{
 			} else if paused {
 				log.Infof("Adding torrent to pause list: %q", t.Name)
 				pauseList = append(pauseList, t.Hash)
+				fields = append(fields, notification.BuildField(notification.ActionPause, notification.BuildOptions{
+					Torrent: t,
+				}))
 			}
 		}
 
@@ -165,6 +175,20 @@ var pauseCmd = &cobra.Command{
 			} else {
 				log.Info("[DRY-RUN] No torrents would be paused")
 			}
+		}
+
+		if !noti.CanSend() {
+			log.Debug("Notifications disabled, skipping...")
+			return
+		}
+
+		sendErr := noti.Send(
+			"Torrent Pause",
+			fmt.Sprintf("Paused **%d** torrent(s)", len(pauseList)),
+			fields,
+		)
+		if sendErr != nil {
+			log.WithError(sendErr).Error("Failed sending notification")
 		}
 	},
 }

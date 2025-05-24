@@ -13,6 +13,7 @@ import (
 	"github.com/autobrr/tqm/pkg/expression"
 	"github.com/autobrr/tqm/pkg/hardlinkfilemap"
 	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/notification"
 	"github.com/autobrr/tqm/pkg/sliceutils"
 	"github.com/autobrr/tqm/pkg/torrentfilemap"
 	"github.com/autobrr/tqm/pkg/tracker"
@@ -35,6 +36,8 @@ var cleanCmd = &cobra.Command{
 
 		// set log
 		log := logger.GetLogger("clean")
+
+		noti := notification.NewDiscordSender(log, config.Config.Notifications)
 
 		// retrieve client object
 		clientName := args[0]
@@ -163,7 +166,7 @@ var cleanCmd = &cobra.Command{
 		}
 
 		// remove torrents that are not ignored and match remove criteria
-		if err := removeEligibleTorrents(ctx, log, c, torrents, tfm, hfm, clientFilter); err != nil {
+		if err := removeEligibleTorrents(ctx, log, c, torrents, tfm, hfm, clientFilter, noti); err != nil {
 			log.WithError(err).Fatal("Failed removing eligible torrents...")
 		}
 	},
