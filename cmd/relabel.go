@@ -11,6 +11,7 @@ import (
 	"github.com/autobrr/tqm/pkg/expression"
 	"github.com/autobrr/tqm/pkg/hardlinkfilemap"
 	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/notification"
 	"github.com/autobrr/tqm/pkg/sliceutils"
 	"github.com/autobrr/tqm/pkg/torrentfilemap"
 	"github.com/autobrr/tqm/pkg/tracker"
@@ -33,6 +34,8 @@ var relabelCmd = &cobra.Command{
 
 		// set log
 		log := logger.GetLogger("relabel")
+
+		noti := notification.NewDiscordSender(log, config.Config.Notifications)
 
 		// retrieve client object
 		clientName := args[0]
@@ -152,7 +155,7 @@ var relabelCmd = &cobra.Command{
 		}
 
 		// relabel torrents that meet the filter criteria
-		if err := relabelEligibleTorrents(ctx, log, c, torrents, tfm); err != nil {
+		if err := relabelEligibleTorrents(ctx, log, c, torrents, tfm, noti); err != nil {
 			log.WithError(err).Fatal("Failed relabeling eligible torrents...")
 		}
 	},
