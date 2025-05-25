@@ -131,7 +131,7 @@ var pauseCmd = &cobra.Command{
 
 		var (
 			pauseList []string
-			fields    []notification.DiscordEmbedsField
+			fields    []notification.Field
 		)
 
 		// iterate through torrents
@@ -152,7 +152,7 @@ var pauseCmd = &cobra.Command{
 			} else if paused {
 				log.Infof("Adding torrent to pause list: %q", t.Name)
 				pauseList = append(pauseList, t.Hash)
-				fields = append(fields, notification.BuildField(notification.ActionPause, notification.BuildOptions{
+				fields = append(fields, noti.BuildField(notification.ActionPause, notification.BuildOptions{
 					Torrent: t,
 				}))
 			}

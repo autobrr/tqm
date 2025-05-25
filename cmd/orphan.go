@@ -139,7 +139,7 @@ var orphanCmd = &cobra.Command{
 		var removedLocalFiles atomic.Uint32
 		var ignoredLocalFiles atomic.Uint32
 		var removedLocalFilesSize atomic.Uint64
-		var fields []notification.DiscordEmbedsField
+		var fields []notification.Field
 
 		filter, err := getClientFilter(clientConfig)
 		if err != nil {
@@ -217,7 +217,7 @@ var orphanCmd = &cobra.Command{
 				removedLocalFiles.Add(1)
 
 				mu.Lock()
-				fields = append(fields, notification.BuildField(notification.ActionOrphan, notification.BuildOptions{
+				fields = append(fields, noti.BuildField(notification.ActionOrphan, notification.BuildOptions{
 					Orphan:     localPath,
 					OrphanSize: localPathSize,
 					IsFile:     true,
@@ -281,7 +281,7 @@ var orphanCmd = &cobra.Command{
 			}
 
 			if removed {
-				fields = append(fields, notification.BuildField(notification.ActionOrphan, notification.BuildOptions{
+				fields = append(fields, noti.BuildField(notification.ActionOrphan, notification.BuildOptions{
 					Orphan:     localPath,
 					OrphanSize: 0,
 					IsFile:     false,
@@ -302,7 +302,7 @@ var orphanCmd = &cobra.Command{
 
 		sendErr := noti.Send(
 			"Orphans",
-			fmt.Sprintf("Removed **%d** orphaned files and **%d** orphand folders | Total reclaimed **%s**",
+			fmt.Sprintf("Removed **%d** orphaned files and **%d** orphaned folders | Total reclaimed **%s**",
 				removedLocalFiles.Load(), removedLocalFolders, humanize.IBytes(removedLocalFilesSize.Load())),
 			fields,
 		)

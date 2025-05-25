@@ -35,7 +35,7 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 		retaggedTorrents      int
 		errorRetaggedTorrents int
 
-		fields []notification.DiscordEmbedsField
+		fields []notification.Field
 	)
 
 	// iterate torrents
@@ -133,7 +133,7 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 		}
 
 		if actionTaken || flagDryRun && shouldTakeAction {
-			fields = append(fields, notification.BuildField(notification.ActionRetag, notification.BuildOptions{
+			fields = append(fields, noti.BuildField(notification.ActionRetag, notification.BuildOptions{
 				Torrent:    t,
 				NewTags:    finalTags,
 				NewUpLimit: limitKb,
@@ -173,7 +173,7 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 		relabeledTorrents    int
 		errorRelabelTorrents int
 
-		fields []notification.DiscordEmbedsField
+		fields []notification.Field
 	)
 
 	// iterate torrents
@@ -232,7 +232,7 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 			log.Warn("Dry-run enabled, skipping relabel...")
 		}
 
-		fields = append(fields, notification.BuildField(notification.ActionRelabel, notification.BuildOptions{
+		fields = append(fields, noti.BuildField(notification.ActionRelabel, notification.BuildOptions{
 			NewLabel: label,
 		}))
 		relabeledTorrents++
@@ -361,7 +361,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		return false
 	}
 
-	var fields []notification.DiscordEmbedsField
+	var fields []notification.Field
 
 	// helper function to remove torrent
 	removeTorrent := func(ctx context.Context, h string, t *config.Torrent) {
@@ -416,7 +416,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 			log.Warn("Dry-run enabled, skipping remove...")
 		}
 
-		fields = append(fields, notification.BuildField(notification.ActionClean, notification.BuildOptions{
+		fields = append(fields, noti.BuildField(notification.ActionClean, notification.BuildOptions{
 			Torrent: *t,
 		}))
 

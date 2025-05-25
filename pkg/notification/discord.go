@@ -75,7 +75,7 @@ func NewDiscordSender(log *logrus.Entry, config config.NotificationsConfig) Send
 	}
 }
 
-func (d *discordSender) Send(title, description string, fields []DiscordEmbedsField) error {
+func (d *discordSender) Send(title string, description string, fields []Field) error {
 	var (
 		allEmbeds   []DiscordEmbed
 		totalFields = len(fields)
@@ -105,6 +105,8 @@ func (d *discordSender) Send(title, description string, fields []DiscordEmbedsFi
 			Timestamp:   timestamp,
 		})
 	} else {
+		df := d.convertFields(fields)
+
 		for i := 0; i < totalFields; i += maxFieldsPerEmbed {
 			end := i + maxFieldsPerEmbed
 			if end > totalFields {
@@ -114,7 +116,7 @@ func (d *discordSender) Send(title, description string, fields []DiscordEmbedsFi
 			embed := DiscordEmbed{
 				Color:     int(LIGHT_BLUE),
 				Timestamp: timestamp,
-				Fields:    fields[i:end],
+				Fields:    df[i:end],
 			}
 
 			if i == 0 {
@@ -178,11 +180,7 @@ func (d *discordSender) Send(title, description string, fields []DiscordEmbedsFi
 }
 
 func (d *discordSender) CanSend() bool {
-	if d.config.Service.Discord != "" {
-		return true
-	}
-
-	return false
+	return d.config.Service.Discord != ""
 }
 
 func (d *discordSender) sendRequest(jsonData []byte) error {
@@ -214,31 +212,45 @@ func (d *discordSender) sendRequest(jsonData []byte) error {
 	return nil
 }
 
-// BuildField constructs a DiscordEmbedsField based on the provided action and build options.
-func BuildField(action Action, opt BuildOptions) DiscordEmbedsField {
+// BuildField constructs a Field based on the provided action and build options.
+func (d *discordSender) BuildField(action Action, opt BuildOptions) Field {
 	switch action {
 	case ActionRetag:
-		return buildRetagField(opt.Torrent, opt.NewTags, opt.NewUpLimit)
+		return d.buildRetagField(opt.Torrent, opt.NewTags, opt.NewUpLimit)
 	case ActionRelabel:
-		return buildRelabelField(opt.Torrent, opt.NewLabel)
+		return d.buildRelabelField(opt.Torrent, opt.NewLabel)
 	case ActionClean, ActionPause:
-		return buildCleanField(opt.Torrent)
+		return d.buildCleanField(opt.Torrent)
 	case ActionOrphan:
-		return buildOrphanField(opt.Orphan, opt.OrphanSize, opt.IsFile)
+		return d.buildOrphanField(opt.Orphan, opt.OrphanSize, opt.IsFile)
 	}
-	return DiscordEmbedsField{}
+
+	return Field{}
 }
 
-func buildRetagField(torrent config.Torrent, newTags []string, newUpLimit int64) DiscordEmbedsField {
-	var data []DiscordEmbedsField
+func (d *discordSender) convertFields(fields []Field) []DiscordEmbedsField {
+	var df []DiscordEmbedsField
 
-	equal := func(fd []DiscordEmbedsField) bool {
+	for _, f := range fields {
+		df = append(df, DiscordEmbedsField{
+			Name:  f.Name,
+			Value: f.Value,
+		})
+	}
+
+	return df
+}
+
+func (d *discordSender) buildRetagField(torrent config.Torrent, newTags []string, newUpLimit int64) Field {
+	var data []Field
+
+	equal := func(fd []Field) bool {
 		return strings.EqualFold(fd[0].Value, fd[1].Value)
 	}
 
-	tagData := []DiscordEmbedsField{
-		{"Old Tags:", strings.Join(torrent.Tags, ", "), false},
-		{"New Tags:", strings.Join(newTags, ", "), false},
+	tagData := []Field{
+		{"Old Tags:", strings.Join(torrent.Tags, ", ")},
+		{"New Tags:", strings.Join(newTags, ", ")},
 	}
 
 	if !equal(tagData) {
@@ -252,49 +264,49 @@ func buildRetagField(torrent config.Torrent, newTags []string, newUpLimit int64)
 		return fmt.Sprintf("%d KiB/s", limit)
 	}
 
-	uploadData := []DiscordEmbedsField{
-		{"Old Upload Limit:", limitStr(torrent.UpLimit), false},
-		{"New Upload Limit:", limitStr(newUpLimit), false},
+	uploadData := []Field{
+		{"Old Upload Limit:", limitStr(torrent.UpLimit)},
+		{"New Upload Limit:", limitStr(newUpLimit)},
 	}
 
 	if !equal(uploadData) {
 		data = append(data, uploadData...)
 	}
 
-	return DiscordEmbedsField{
+	return Field{
 		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
-		Value: buildCodeBlock(data),
+		Value: d.buildCodeBlock(data),
 	}
 }
 
-func buildRelabelField(torrent config.Torrent, newLabel string) DiscordEmbedsField {
-	data := []DiscordEmbedsField{
-		{"Old Label:", torrent.Label, false},
-		{"New Label:", newLabel, false},
+func (d *discordSender) buildRelabelField(torrent config.Torrent, newLabel string) Field {
+	data := []Field{
+		{"Old Label:", torrent.Label},
+		{"New Label:", newLabel},
 	}
 
-	return DiscordEmbedsField{
+	return Field{
 		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
-		Value: buildCodeBlock(data),
+		Value: d.buildCodeBlock(data),
 	}
 }
 
-func buildCleanField(torrent config.Torrent) DiscordEmbedsField {
-	data := []DiscordEmbedsField{
-		{"Ratio:", fmt.Sprintf("%.2f", torrent.Ratio), false},
-		{"Label:", torrent.Label, false},
-		{"Tags:", strings.Join(torrent.Tags, ", "), false},
-		{"Tracker:", torrent.TrackerName, false},
-		{"Status:", torrent.TrackerStatus, false},
+func (d *discordSender) buildCleanField(torrent config.Torrent) Field {
+	data := []Field{
+		{"Ratio:", fmt.Sprintf("%.2f", torrent.Ratio)},
+		{"Label:", torrent.Label},
+		{"Tags:", strings.Join(torrent.Tags, ", ")},
+		{"Tracker:", torrent.TrackerName},
+		{"Status:", torrent.TrackerStatus},
 	}
 
-	return DiscordEmbedsField{
+	return Field{
 		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
-		Value: buildCodeBlock(data),
+		Value: d.buildCodeBlock(data),
 	}
 }
 
-func buildOrphanField(orphan string, orphanSize int64, isFile bool) DiscordEmbedsField {
+func (d *discordSender) buildOrphanField(orphan string, orphanSize int64, isFile bool) Field {
 	var (
 		sizeStr string
 		prefix  = "Folder"
@@ -305,16 +317,16 @@ func buildOrphanField(orphan string, orphanSize int64, isFile bool) DiscordEmbed
 		sizeStr = fmt.Sprintf(" (%s)", humanize.IBytes(uint64(orphanSize)))
 	}
 
-	return DiscordEmbedsField{
+	return Field{
 		Name: fmt.Sprintf("%-*s%s%s", 10, prefix, orphan, sizeStr),
 	}
 }
 
-func buildCodeBlock(data []DiscordEmbedsField) string {
+func (d *discordSender) buildCodeBlock(data []Field) string {
 	var maxLabelLen int
-	for _, d := range data {
-		if len(d.Name) > maxLabelLen {
-			maxLabelLen = len(d.Name)
+	for _, dt := range data {
+		if len(dt.Name) > maxLabelLen {
+			maxLabelLen = len(dt.Name)
 		}
 	}
 

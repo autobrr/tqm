@@ -16,8 +16,14 @@ const (
 
 type Sender interface {
 	CanSend() bool
-	Send(title string, description string, fields []DiscordEmbedsField) error
+	Send(title string, description string, fields []Field) error
+	BuildField(action Action, options BuildOptions) Field
 	Name() string
+}
+
+type Field struct {
+	Name  string
+	Value string
 }
 
 type BuildOptions struct {
