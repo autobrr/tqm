@@ -1,8 +1,9 @@
 package config
 
 type NotificationsConfig struct {
-	Detailed bool
-	Service  NotificationService
+	Detailed     bool
+	SkipEmptyRun bool `yaml:"skip_empty_run" koanf:"skip_empty_run"`
+	Service      NotificationService
 }
 
 type NotificationService struct {

@@ -86,6 +86,12 @@ func (d *discordSender) Send(title string, description string, fields []Field) e
 		currentChars int
 	)
 
+	// if the config setting "skip_empty_run" is set to true, and there are no fields,
+	// skip sending the message entirely.
+	if totalFields == 0 && d.config.SkipEmptyRun {
+		return nil
+	}
+
 	// embedChars returns the number of characters in an embed.
 	embedChars := func(e DiscordEmbed) int {
 		count := len(e.Title) + len(e.Description)
