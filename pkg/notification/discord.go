@@ -36,8 +36,14 @@ type DiscordEmbed struct {
 	Description string               `json:"description"`
 	Color       int                  `json:"color"`
 	Fields      []DiscordEmbedsField `json:"fields,omitempty"`
+	Footer      DiscordEmbedsFooter  `json:"footer,omitempty"`
 	Timestamp   time.Time            `json:"timestamp"`
 }
+
+type DiscordEmbedsFooter struct {
+	Text string `json:"text"`
+}
+
 type DiscordEmbedsField struct {
 	Name   string `json:"name"`
 	Value  string `json:"value"`
@@ -75,7 +81,7 @@ func NewDiscordSender(log *logrus.Entry, config config.NotificationsConfig) Send
 	}
 }
 
-func (d *discordSender) Send(title string, description string, fields []Field) error {
+func (d *discordSender) Send(title string, description string, runTime time.Duration, fields []Field) error {
 	var (
 		allEmbeds   []DiscordEmbed
 		totalFields = len(fields)
@@ -101,6 +107,8 @@ func (d *discordSender) Send(title string, description string, fields []Field) e
 		return count
 	}
 
+	rt := runTime.Truncate(time.Millisecond).String()
+
 	// only send a summary embed if no fields are present, there are more fields than allowed,
 	// or the config setting "detailed" is set to false
 	if totalFields == 0 || totalFields > maxTotalFields || !d.config.Detailed {
@@ -108,7 +116,10 @@ func (d *discordSender) Send(title string, description string, fields []Field) e
 			Title:       title,
 			Description: description,
 			Color:       int(LIGHT_BLUE),
-			Timestamp:   timestamp,
+			Footer: DiscordEmbedsFooter{
+				Text: d.buildFooter(0, totalFields, rt),
+			},
+			Timestamp: timestamp,
 		})
 	} else {
 		df := d.convertFields(fields)
@@ -120,9 +131,12 @@ func (d *discordSender) Send(title string, description string, fields []Field) e
 			}
 
 			embed := DiscordEmbed{
-				Color:     int(LIGHT_BLUE),
+				Color:  int(LIGHT_BLUE),
+				Fields: df[i:end],
+				Footer: DiscordEmbedsFooter{
+					Text: d.buildFooter(end, totalFields, rt),
+				},
 				Timestamp: timestamp,
-				Fields:    df[i:end],
 			}
 
 			if i == 0 {
@@ -348,4 +362,12 @@ func (d *discordSender) buildCodeBlock(data []Field) string {
 	sb.WriteString("```")
 
 	return sb.String()
+}
+
+func (d *discordSender) buildFooter(progress int, totalFields int, runTime string) string {
+	if totalFields == 0 || totalFields > maxTotalFields || totalFields <= maxFieldsPerEmbed {
+		return fmt.Sprintf("Started: %s ago", runTime)
+	}
+
+	return fmt.Sprintf("Progress: %d/%d | Started: %s ago", progress, totalFields, runTime)
 }

@@ -1,6 +1,8 @@
 package notification
 
 import (
+	"time"
+
 	"github.com/autobrr/tqm/pkg/config"
 )
 
@@ -16,7 +18,7 @@ const (
 
 type Sender interface {
 	CanSend() bool
-	Send(title string, description string, fields []Field) error
+	Send(title string, description string, runTime time.Duration, fields []Field) error
 	BuildField(action Action, options BuildOptions) Field
 	Name() string
 }

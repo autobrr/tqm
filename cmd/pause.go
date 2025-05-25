@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/spf13/cobra"
@@ -23,6 +24,7 @@ var pauseCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := cmd.Context()
+		start := time.Now()
 
 		// init core
 		if !initialized {
@@ -185,6 +187,7 @@ var pauseCmd = &cobra.Command{
 		sendErr := noti.Send(
 			"Torrent Pause",
 			fmt.Sprintf("Paused **%d** torrent(s)", len(pauseList)),
+			time.Since(start),
 			fields,
 		)
 		if sendErr != nil {

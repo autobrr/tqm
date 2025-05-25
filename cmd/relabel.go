@@ -25,6 +25,7 @@ var relabelCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := cmd.Context()
+		startTime := time.Now()
 
 		// init core
 		if !initialized {
@@ -155,7 +156,7 @@ var relabelCmd = &cobra.Command{
 		}
 
 		// relabel torrents that meet the filter criteria
-		if err := relabelEligibleTorrents(ctx, log, c, torrents, tfm, noti); err != nil {
+		if err := relabelEligibleTorrents(ctx, log, c, torrents, tfm, noti, startTime); err != nil {
 			log.WithError(err).Fatal("Failed relabeling eligible torrents...")
 		}
 	},

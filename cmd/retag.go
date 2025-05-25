@@ -24,6 +24,8 @@ var retagCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := cmd.Context()
+		startTime := time.Now()
+
 		// init core
 		if !initialized {
 			initCore(true)
@@ -165,7 +167,7 @@ var retagCmd = &cobra.Command{
 		}
 
 		// relabel torrents that meet the filter criteria
-		if err := retagEligibleTorrents(ctx, log, ct, torrents, noti); err != nil {
+		if err := retagEligibleTorrents(ctx, log, ct, torrents, noti, startTime); err != nil {
 			log.WithError(err).Fatal("Failed retagging eligible torrents...")
 		}
 	},

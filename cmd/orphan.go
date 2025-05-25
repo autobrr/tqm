@@ -30,6 +30,7 @@ var orphanCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := cmd.Context()
+		start := time.Now()
 
 		// init core
 		if !initialized {
@@ -304,6 +305,7 @@ var orphanCmd = &cobra.Command{
 			"Orphans",
 			fmt.Sprintf("Removed **%d** orphaned files and **%d** orphaned folders | Total reclaimed **%s**",
 				removedLocalFiles.Load(), removedLocalFolders, humanize.IBytes(removedLocalFilesSize.Load())),
+			time.Since(start),
 			fields,
 		)
 		if sendErr != nil {
