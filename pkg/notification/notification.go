@@ -31,6 +31,8 @@ type Field struct {
 type BuildOptions struct {
 	Torrent config.Torrent
 
+	RemovalReason string
+
 	NewTags    []string
 	NewUpLimit int64
 

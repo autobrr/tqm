@@ -240,7 +240,7 @@ func (d *discordSender) BuildField(action Action, opt BuildOptions) Field {
 	case ActionRelabel:
 		return d.buildRelabelField(opt.Torrent, opt.NewLabel)
 	case ActionClean, ActionPause:
-		return d.buildCleanField(opt.Torrent)
+		return d.buildCleanField(opt.Torrent, opt.RemovalReason)
 	case ActionOrphan:
 		return d.buildOrphanField(opt.Orphan, opt.OrphanSize, opt.IsFile)
 	}
@@ -311,14 +311,26 @@ func (d *discordSender) buildRelabelField(torrent config.Torrent, newLabel strin
 	}
 }
 
-func (d *discordSender) buildCleanField(torrent config.Torrent) Field {
+func (d *discordSender) buildCleanField(torrent config.Torrent, removalReason string) Field {
 	data := []Field{
 		{"Ratio:", fmt.Sprintf("%.2f", torrent.Ratio)},
-		{"Label:", torrent.Label},
-		{"Tags:", strings.Join(torrent.Tags, ", ")},
-		{"Tracker:", torrent.TrackerName},
-		{"Status:", torrent.TrackerStatus},
 	}
+
+	if torrent.Label != "" {
+		data = append(data, Field{"Label:", torrent.Label})
+	}
+
+	if len(torrent.Tags) > 0 && strings.Join(torrent.Tags, ", ") != "" {
+		data = append(data, Field{"Tags:", strings.Join(torrent.Tags, ", ")})
+	}
+
+	data = append(data, Field{"Tracker:", torrent.TrackerName})
+
+	if torrent.TrackerStatus != "" {
+		data = append(data, Field{"Status:", torrent.TrackerStatus})
+	}
+
+	data = append(data, Field{"Reason:", removalReason})
 
 	return Field{
 		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),

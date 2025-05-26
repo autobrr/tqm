@@ -281,7 +281,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	}
 
 	// helper function to handle removal of torrents that aren't unique
-	handleNonUniqueTorrent := func(ctx context.Context, h string, t *config.Torrent, isHardlinked bool) bool {
+	handleNonUniqueTorrent := func(ctx context.Context, h string, t *config.Torrent, isHardlinked bool, reason string) bool {
 		// Check if torrent is unregistered (can bypass uniqueness checks)
 		if t.IsUnregistered(ctx) {
 			// For unregistered torrents, override safety checks
@@ -291,6 +291,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 			} else {
 				log.Infof("removing unregistered non-unique torrent (file overlap): %q - %s", t.Name, humanize.IBytes(uint64(t.DownloadedBytes)))
 			}
+			log.Debugf("Removal reason: %s", reason)
 			log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
 				"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
 
@@ -366,7 +367,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	var fields []notification.Field
 
 	// helper function to remove torrent
-	removeTorrent := func(ctx context.Context, h string, t *config.Torrent) {
+	removeTorrent := func(ctx context.Context, h string, t *config.Torrent, reason string) {
 		// remove the torrent
 		log.Info("-----")
 		if !t.FreeSpaceSet {
@@ -377,6 +378,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 				humanize.IBytes(uint64(t.DownloadedBytes)), t.FreeSpaceGB())
 		}
 
+		log.Debugf("Removal reason: %s", reason)
 		log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
 			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
 
@@ -419,7 +421,8 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		}
 
 		fields = append(fields, noti.BuildField(notification.ActionClean, notification.BuildOptions{
-			Torrent: *t,
+			Torrent:       *t,
+			RemovalReason: reason,
 		}))
 
 		// increased hard removed counters
@@ -433,6 +436,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 
 	// iterate torrents
 	candidates := make(map[string]config.Torrent)
+	candidateReasons := make(map[string]string)
 	for h, t := range torrents {
 		// should we ignore this torrent?
 		ignore, err := c.ShouldIgnore(ctx, &t)
@@ -450,7 +454,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		}
 
 		// should we remove this torrent?
-		remove, err := c.ShouldRemove(ctx, &t)
+		remove, reason, err := c.ShouldRemoveWithReason(ctx, &t)
 		if err != nil {
 			log.WithError(err).Errorf("Failed determining whether to remove: %+v", t)
 			// dont do any further operations on this torrent, but keep in the torrent file map
@@ -479,17 +483,18 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		}
 
 		if isNotUnique {
-			if handled := handleNonUniqueTorrent(ctx, h, &t, isHardlinked); handled {
+			if handled := handleNonUniqueTorrent(ctx, h, &t, isHardlinked, reason); handled {
 				// Torrent was handled (removed) in the function
 				continue
 			} else {
 				// Torrent was not removed, add to candidates
 				candidates[h] = t
+				candidateReasons[h] = reason
 				continue
 			}
 		}
 
-		removeTorrent(ctx, h, &t)
+		removeTorrent(ctx, h, &t, reason)
 	}
 
 	log.Info("========================================")
@@ -514,7 +519,8 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 			continue
 		}
 
-		removeTorrent(ctx, h, &t)
+		reason := candidateReasons[h]
+		removeTorrent(ctx, h, &t, reason)
 		removedCandidates++
 	}
 

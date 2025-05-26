@@ -92,7 +92,10 @@ func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 			return nil, fmt.Errorf("compile ignore expression: %q: %w", ignoreExpr, err)
 		}
 
-		exp.Ignores = append(exp.Ignores, program)
+		exp.Ignores = append(exp.Ignores, CompiledExpression{
+			Program: program,
+			Text:    ignoreExpr,
+		})
 	}
 
 	// compile removes
@@ -102,7 +105,10 @@ func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 			return nil, fmt.Errorf("compile remove expression: %q: %w", removeExpr, err)
 		}
 
-		exp.Removes = append(exp.Removes, program)
+		exp.Removes = append(exp.Removes, CompiledExpression{
+			Program: program,
+			Text:    removeExpr,
+		})
 	}
 
 	// compile pauses
@@ -112,7 +118,10 @@ func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 			return nil, fmt.Errorf("compile pause expression: %q: %w", pauseExpr, err)
 		}
 
-		exp.Pauses = append(exp.Pauses, program)
+		exp.Pauses = append(exp.Pauses, CompiledExpression{
+			Program: program,
+			Text:    pauseExpr,
+		})
 	}
 
 	// compile labels
@@ -126,7 +135,10 @@ func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 				return nil, fmt.Errorf("compile label update expression: %v: %q: %w", labelExpr.Name, updateExpr, err)
 			}
 
-			le.Updates = append(le.Updates, program)
+			le.Updates = append(le.Updates, CompiledExpression{
+				Program: program,
+				Text:    updateExpr,
+			})
 		}
 
 		exp.Labels = append(exp.Labels, le)
@@ -143,7 +155,10 @@ func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 				return nil, fmt.Errorf("compile tag update expression: %v: %q: %w", tagExpr.Name, updateExpr, err)
 			}
 
-			le.Updates = append(le.Updates, program)
+			le.Updates = append(le.Updates, CompiledExpression{
+				Program: program,
+				Text:    updateExpr,
+			})
 		}
 
 		exp.Tags = append(exp.Tags, le)
