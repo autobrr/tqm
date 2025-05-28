@@ -33,7 +33,7 @@ func NewPTP(c PTPConfig) *PTP {
 	l := logger.GetLogger("ptp-api")
 	return &PTP{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack), l),
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		headers: map[string]string{
 			"ApiUser": c.User,
 			"ApiKey":  c.Key,

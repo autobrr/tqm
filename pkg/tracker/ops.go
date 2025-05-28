@@ -30,7 +30,7 @@ func NewOPS(c OPSConfig) *OPS {
 	l := logger.GetLogger("ops-api")
 	return &OPS{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack), l),
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		log:  l,
 	}
 }
