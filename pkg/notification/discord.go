@@ -29,8 +29,10 @@ const (
 )
 
 type DiscordMessage struct {
-	Content interface{}    `json:"content"`
-	Embeds  []DiscordEmbed `json:"embeds,omitempty"`
+	Content   interface{}    `json:"content"`
+	Username  string         `json:"username,omitempty"`
+	AvatarURL string         `json:"avatar_url,omitempty"`
+	Embeds    []DiscordEmbed `json:"embeds,omitempty"`
 }
 
 type DiscordEmbed struct {
@@ -360,8 +362,10 @@ func (d *discordSender) Send(title string, description string, client string, ru
 		}
 
 		msg := DiscordMessage{
-			Content: nil,
-			Embeds:  batch,
+			Content:   nil,
+			Username:  d.config.Service.Discord.Username,
+			AvatarURL: d.config.Service.Discord.AvatarURL,
+			Embeds:    batch,
 		}
 
 		jsonData, err := json.Marshal(msg)
@@ -382,18 +386,18 @@ func (d *discordSender) Send(title string, description string, client string, ru
 }
 
 func (d *discordSender) CanSend() bool {
-	return d.config.Service.Discord != ""
+	return d.config.Service.Discord.WebhookURL != ""
 }
 
 func (d *discordSender) sendRequest(jsonData []byte) error {
 	// Extract bucket identifier from webhook URL for rate limiting
 	// Discord webhooks use a per-webhook bucket system
-	bucket := d.getBucketFromURL(d.config.Service.Discord)
+	bucket := d.getBucketFromURL(d.config.Service.Discord.WebhookURL)
 
 	// Wait for rate limit clearance
 	d.rateLimiter.Wait(bucket)
 
-	req, err := http.NewRequest(http.MethodPost, d.config.Service.Discord, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(http.MethodPost, d.config.Service.Discord.WebhookURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return errors.Wrap(err, "could not create request")
 	}

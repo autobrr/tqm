@@ -7,5 +7,11 @@ type NotificationsConfig struct {
 }
 
 type NotificationService struct {
-	Discord string
+	Discord DiscordConfig `yaml:"discord" koanf:"discord"`
+}
+
+type DiscordConfig struct {
+	WebhookURL string `yaml:"webhook_url" koanf:"webhook_url"`
+	Username   string `yaml:"username" koanf:"username"`
+	AvatarURL  string `yaml:"avatar_url" koanf:"avatar_url"`
 }
