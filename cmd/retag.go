@@ -167,7 +167,7 @@ var retagCmd = &cobra.Command{
 		}
 
 		// relabel torrents that meet the filter criteria
-		if err := retagEligibleTorrents(ctx, log, ct, torrents, noti, startTime); err != nil {
+		if err := retagEligibleTorrents(ctx, log, ct, torrents, noti, clientName, startTime); err != nil {
 			log.WithError(err).Fatal("Failed retagging eligible torrents...")
 		}
 	},

@@ -119,7 +119,7 @@ func (rl *RateLimiter) Wait(bucket string) {
 		if limit.Remaining <= 0 && time.Now().Before(limit.ResetTime) {
 			waitTime := time.Until(limit.ResetTime)
 			rl.mu.RUnlock()
-			rl.log.Warnf("Bucket %s rate limited, waiting %v", bucket, waitTime)
+			rl.log.Warnf("Bucket %s rate limited, waiting %v", bucket, waitTime.Truncate(time.Millisecond))
 			time.Sleep(waitTime)
 			return
 		}
@@ -137,18 +137,21 @@ func (rl *RateLimiter) Update(bucket string, headers http.Header) {
 
 	// Parse rate limit headers
 	if val := headers.Get("X-RateLimit-Limit"); val != "" {
+		rl.log.Tracef("X-RateLimit-Limit header: %s", val)
 		if parsed, err := strconv.Atoi(val); err == nil {
 			limit.Limit = parsed
 		}
 	}
 
 	if val := headers.Get("X-RateLimit-Remaining"); val != "" {
+		rl.log.Tracef("X-RateLimit-Remaining header: %s", val)
 		if parsed, err := strconv.Atoi(val); err == nil {
 			limit.Remaining = parsed
 		}
 	}
 
 	if val := headers.Get("X-RateLimit-Reset"); val != "" {
+		rl.log.Tracef("X-RateLimit-Reset header: %s", val)
 		if parsed, err := strconv.ParseFloat(val, 64); err == nil {
 			limit.ResetTime = time.Unix(int64(parsed), 0)
 		}
@@ -157,8 +160,12 @@ func (rl *RateLimiter) Update(bucket string, headers http.Header) {
 	limit.Scope = headers.Get("X-RateLimit-Scope")
 	limit.Global = headers.Get("X-RateLimit-Global") == "true"
 
+	rl.log.Tracef("X-RateLimit-Scope header: %v", limit.Scope)
+	rl.log.Tracef("X-RateLimit-Global header: %v", limit.Global)
+
 	// Handle retry-after for rate limited requests
 	if val := headers.Get("Retry-After"); val != "" {
+		rl.log.Tracef("Retry-After header: %s", val)
 		if parsed, err := strconv.ParseFloat(val, 64); err == nil {
 			limit.RetryAfter = time.Duration(parsed * float64(time.Second))
 
@@ -174,7 +181,7 @@ func (rl *RateLimiter) Update(bucket string, headers http.Header) {
 	// Store bucket rate limit info
 	rl.buckets[bucket] = limit
 
-	rl.log.Debugf("Rate limit updated for bucket %s: %d/%d remaining, resets at %v",
+	rl.log.Tracef("Rate limit updated for bucket %s: %d/%d remaining, resets at %v",
 		bucket, limit.Remaining, limit.Limit, limit.ResetTime)
 }
 
@@ -246,7 +253,7 @@ func (d *discordSender) calculateEmbedSize(embed DiscordEmbed) (int, error) {
 	return len(jsonData), nil
 }
 
-func (d *discordSender) Send(title string, description string, runTime time.Duration, fields []Field, dryRun bool) error {
+func (d *discordSender) Send(title string, description string, client string, runTime time.Duration, fields []Field, dryRun bool) error {
 	var (
 		allEmbeds   []DiscordEmbed
 		totalFields = len(fields)
@@ -278,7 +285,7 @@ func (d *discordSender) Send(title string, description string, runTime time.Dura
 			Description: description,
 			Color:       int(LIGHT_BLUE),
 			Footer: DiscordEmbedsFooter{
-				Text: d.buildFooter(0, totalFields, rt),
+				Text: d.buildFooter(0, 0, client, rt),
 			},
 			Timestamp: timestamp,
 		})
@@ -286,11 +293,10 @@ func (d *discordSender) Send(title string, description string, runTime time.Dura
 		// Create one embed per torrent using the existing field data
 		for i, field := range fields {
 			embed := DiscordEmbed{
-				Title:  escapeDiscordMarkdown(title),
 				Color:  int(LIGHT_BLUE),
 				Fields: d.parseFieldValueToInlineFields(field.Value),
 				Footer: DiscordEmbedsFooter{
-					Text: d.buildFooter(i+1, totalFields, rt),
+					Text: d.buildFooter(i+1, totalFields, client, rt),
 				},
 				Timestamp: timestamp,
 			}
@@ -302,12 +308,13 @@ func (d *discordSender) Send(title string, description string, runTime time.Dura
 
 			allEmbeds = append(allEmbeds, embed)
 		}
+
 		allEmbeds = append(allEmbeds, DiscordEmbed{
 			Title:       fmt.Sprintf("%s - Summary", title),
 			Description: description,
 			Color:       int(LIGHT_BLUE),
 			Footer: DiscordEmbedsFooter{
-				Text: d.buildFooter(0, 0, rt),
+				Text: d.buildFooter(0, 0, client, rt),
 			},
 			Timestamp: timestamp,
 		})
@@ -342,16 +349,28 @@ func (d *discordSender) Send(title string, description string, runTime time.Dura
 	totalMsgs := len(batches)
 
 	for i, batch := range batches {
+		// Only set the title if it's the first embed in the batch and doesn't already have a title
+		if batch[0].Title == "" {
+			batch[0].Title = escapeDiscordMarkdown(title)
+
+			// If more than one message, append the counter to the first embed’s title
+			if totalMsgs > 1 {
+				batch[0].Title = fmt.Sprintf("%s (%d/%d)", batch[0].Title, i+1, totalMsgs)
+			}
+		}
+
 		msg := DiscordMessage{
 			Content: nil,
 			Embeds:  batch,
 		}
+
 		jsonData, err := json.Marshal(msg)
 		if err != nil {
 			return errors.Wrap(err, "could not marshal json request for a message chunk")
 		}
+
 		if sendErr := d.sendRequest(jsonData); sendErr != nil {
-			return errors.Wrap(err, "failed to send a message chunk to Discord")
+			return errors.Wrap(sendErr, "failed to send a message chunk to Discord")
 		}
 
 		d.log.Debugf("Sent Discord message %d/%d (%d embeds, %d chars).",
@@ -393,7 +412,7 @@ func (d *discordSender) sendRequest(jsonData []byte) error {
 	d.log.Tracef("Discord response status: %d", res.StatusCode)
 
 	// Handle rate limit responses
-	if res.StatusCode == 429 {
+	if res.StatusCode == http.StatusTooManyRequests {
 		body, readErr := io.ReadAll(bufio.NewReader(res.Body))
 		if readErr != nil {
 			return errors.Wrap(readErr, "could not read rate limit response body")
@@ -441,9 +460,9 @@ func (d *discordSender) BuildField(action Action, opt BuildOptions) Field {
 	case ActionRelabel:
 		return d.buildRelabelField(opt.Torrent, opt.NewLabel)
 	case ActionClean:
-		return d.buildCleanField(opt.Torrent, opt.RemovalReason)
+		return d.buildGenericField(opt.Torrent, opt.RemovalReason)
 	case ActionPause:
-		return d.buildPauseField(opt.Torrent)
+		return d.buildGenericField(opt.Torrent, "")
 	case ActionOrphan:
 		return d.buildOrphanField(opt.Orphan, opt.OrphanSize, opt.IsFile)
 	}
@@ -529,57 +548,7 @@ func (d *discordSender) buildRelabelField(torrent config.Torrent, newLabel strin
 	}
 }
 
-func (d *discordSender) buildPauseField(torrent config.Torrent) Field {
-	var inlineFields []DiscordEmbedsField
-
-	inlineFields = append(inlineFields, DiscordEmbedsField{
-		Name:   "Ratio",
-		Value:  fmt.Sprintf("%.2f", torrent.Ratio),
-		Inline: true,
-	})
-
-	if torrent.Label != "" {
-		inlineFields = append(inlineFields, DiscordEmbedsField{
-			Name:   "Label",
-			Value:  escapeDiscordMarkdown(torrent.Label),
-			Inline: true,
-		})
-	}
-
-	if len(torrent.Tags) > 0 && strings.Join(torrent.Tags, ", ") != "" {
-		inlineFields = append(inlineFields, DiscordEmbedsField{
-			Name:   "Tags",
-			Value:  escapeDiscordMarkdown(strings.Join(torrent.Tags, ", ")),
-			Inline: true,
-		})
-	}
-
-	inlineFields = append(inlineFields, DiscordEmbedsField{
-		Name:   "Tracker",
-		Value:  escapeDiscordMarkdown(torrent.TrackerName),
-		Inline: true,
-	})
-
-	if torrent.TrackerStatus != "" {
-		inlineFields = append(inlineFields, DiscordEmbedsField{
-			Name:   "Tracker Status",
-			Value:  escapeDiscordMarkdown(torrent.TrackerStatus),
-			Inline: false,
-		})
-	}
-
-	// No reason field for pause actions
-
-	// Serialize to JSON to store in the field value
-	jsonData, _ := json.Marshal(inlineFields)
-
-	return Field{
-		Name:  escapeDiscordMarkdown(fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes)))),
-		Value: string(jsonData),
-	}
-}
-
-func (d *discordSender) buildCleanField(torrent config.Torrent, removalReason string) Field {
+func (d *discordSender) buildGenericField(torrent config.Torrent, reason string) Field {
 	// Build inline fields directly and store as JSON in the value
 	var inlineFields []DiscordEmbedsField
 
@@ -619,11 +588,13 @@ func (d *discordSender) buildCleanField(torrent config.Torrent, removalReason st
 		})
 	}
 
-	inlineFields = append(inlineFields, DiscordEmbedsField{
-		Name:   "Reason",
-		Value:  escapeDiscordMarkdown(removalReason),
-		Inline: false,
-	})
+	if reason != "" {
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "Reason",
+			Value:  escapeDiscordMarkdown(reason),
+			Inline: false,
+		})
+	}
 
 	// Serialize to JSON to store in the field value
 	jsonData, _ := json.Marshal(inlineFields)
@@ -632,20 +603,6 @@ func (d *discordSender) buildCleanField(torrent config.Torrent, removalReason st
 		Name:  escapeDiscordMarkdown(fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes)))),
 		Value: string(jsonData),
 	}
-}
-
-// Updated parseFieldValueToInlineFields to handle JSON data
-func (d *discordSender) parseFieldValueToInlineFields(value string) []DiscordEmbedsField {
-	var fields []DiscordEmbedsField
-
-	// Parse as JSON (all field types now use this format)
-	if err := json.Unmarshal([]byte(value), &fields); err != nil {
-		// Log error but return empty fields rather than fallback
-		d.log.WithError(err).Error("Failed to parse field value as JSON")
-		return []DiscordEmbedsField{}
-	}
-
-	return fields
 }
 
 func (d *discordSender) buildOrphanField(orphan string, orphanSize int64, isFile bool) Field {
@@ -685,10 +642,24 @@ func (d *discordSender) buildOrphanField(orphan string, orphanSize int64, isFile
 	}
 }
 
-func (d *discordSender) buildFooter(progress int, totalFields int, runTime string) string {
+func (d *discordSender) buildFooter(progress int, totalFields int, client string, runTime string) string {
 	if totalFields == 0 {
-		return fmt.Sprintf("Started: %s ago", runTime)
+		return fmt.Sprintf("Client: %s | Started: %s ago", client, runTime)
 	}
 
-	return fmt.Sprintf("Progress: %d/%d | Started: %s ago", progress, totalFields, runTime)
+	return fmt.Sprintf("Progress: %d/%d | Client: %s | Started: %s ago", progress, totalFields, client, runTime)
+}
+
+// Updated parseFieldValueToInlineFields to handle JSON data
+func (d *discordSender) parseFieldValueToInlineFields(value string) []DiscordEmbedsField {
+	var fields []DiscordEmbedsField
+
+	// Parse as JSON (all field types now use this format)
+	if err := json.Unmarshal([]byte(value), &fields); err != nil {
+		// Log error but return empty fields rather than fallback
+		d.log.WithError(err).Error("Failed to parse field value as JSON")
+		return []DiscordEmbedsField{}
+	}
+
+	return fields
 }

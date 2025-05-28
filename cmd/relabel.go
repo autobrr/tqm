@@ -156,7 +156,7 @@ var relabelCmd = &cobra.Command{
 		}
 
 		// relabel torrents that meet the filter criteria
-		if err := relabelEligibleTorrents(ctx, log, c, torrents, tfm, noti, startTime); err != nil {
+		if err := relabelEligibleTorrents(ctx, log, c, torrents, tfm, noti, clientName, startTime); err != nil {
 			log.WithError(err).Fatal("Failed relabeling eligible torrents...")
 		}
 	},

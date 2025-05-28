@@ -305,6 +305,7 @@ var orphanCmd = &cobra.Command{
 			"Orphans",
 			fmt.Sprintf("Removed **%d** orphaned files and **%d** orphaned folders | Total reclaimed **%s**",
 				removedLocalFiles.Load(), removedLocalFolders, humanize.IBytes(removedLocalFilesSize.Load())),
+			clientName,
 			time.Since(start),
 			fields,
 			flagDryRun,

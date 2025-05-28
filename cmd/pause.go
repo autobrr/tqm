@@ -187,6 +187,7 @@ var pauseCmd = &cobra.Command{
 		sendErr := noti.Send(
 			"Torrent Pause",
 			fmt.Sprintf("Paused **%d** torrent(s)", len(pauseList)),
+			clientName,
 			time.Since(start),
 			fields,
 			flagDryRun,

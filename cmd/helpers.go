@@ -28,7 +28,7 @@ func removeSlice(slice []string, remove []string) []string {
 }
 
 // retag torrent that meet required filters
-func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagInterface, torrents map[string]config.Torrent, noti notification.Sender, startTime time.Time) error {
+func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagInterface, torrents map[string]config.Torrent, noti notification.Sender, client string, startTime time.Time) error {
 	// vars
 	var (
 		ignoredTorrents       int
@@ -155,6 +155,7 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 	sendErr := noti.Send(
 		"Torrent Retag",
 		fmt.Sprintf("Retagged **%d** torrent(s)", retaggedTorrents),
+		client,
 		time.Since(startTime),
 		fields,
 		flagDryRun,
@@ -167,7 +168,7 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 }
 
 // relabel torrent that meet required filters
-func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Interface, torrents map[string]config.Torrent, tfm *torrentfilemap.TorrentFileMap, noti notification.Sender, startTime time.Time) error {
+func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Interface, torrents map[string]config.Torrent, tfm *torrentfilemap.TorrentFileMap, noti notification.Sender, client string, startTime time.Time) error {
 	// vars
 	var (
 		ignoredTorrents      int
@@ -257,6 +258,7 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 	sendErr := noti.Send(
 		"Torrent Relabel",
 		fmt.Sprintf("Relabeled **%d** torrent(s)", relabeledTorrents),
+		client,
 		time.Since(startTime),
 		fields,
 		flagDryRun,
@@ -269,7 +271,7 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 }
 
 // remove torrents that meet remove filters
-func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Interface, torrents map[string]config.Torrent, tfm *torrentfilemap.TorrentFileMap, hfm hardlinkfilemap.HardlinkFileMapI, filter *config.FilterConfiguration, noti notification.Sender, startTime time.Time) error {
+func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Interface, torrents map[string]config.Torrent, tfm *torrentfilemap.TorrentFileMap, hfm hardlinkfilemap.HardlinkFileMapI, filter *config.FilterConfiguration, noti notification.Sender, client string, startTime time.Time) error {
 	// vars
 	var (
 		ignoredTorrents     int
@@ -544,6 +546,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	sendErr := noti.Send(
 		"Torrent Cleanup",
 		fmt.Sprintf("Removed **%d** torrent(s) | Total reclaimed **%s**", hardRemoveTorrents, reclaimedSpace),
+		client,
 		time.Since(startTime),
 		fields,
 		flagDryRun,
