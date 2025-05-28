@@ -307,6 +307,7 @@ var orphanCmd = &cobra.Command{
 				removedLocalFiles.Load(), removedLocalFolders, humanize.IBytes(removedLocalFilesSize.Load())),
 			time.Since(start),
 			fields,
+			flagDryRun,
 		)
 		if sendErr != nil {
 			log.WithError(sendErr).Error("Failed sending notification")

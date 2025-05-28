@@ -157,6 +157,7 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 		fmt.Sprintf("Retagged **%d** torrent(s)", retaggedTorrents),
 		time.Since(startTime),
 		fields,
+		flagDryRun,
 	)
 	if sendErr != nil {
 		log.WithError(sendErr).Error("Failed sending notification")
@@ -234,6 +235,7 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 		}
 
 		fields = append(fields, noti.BuildField(notification.ActionRelabel, notification.BuildOptions{
+			Torrent:  t,
 			NewLabel: label,
 		}))
 		relabeledTorrents++
@@ -257,6 +259,7 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 		fmt.Sprintf("Relabeled **%d** torrent(s)", relabeledTorrents),
 		time.Since(startTime),
 		fields,
+		flagDryRun,
 	)
 	if sendErr != nil {
 		log.WithError(sendErr).Error("Failed sending notification")
@@ -543,6 +546,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		fmt.Sprintf("Removed **%d** torrent(s) | Total reclaimed **%s**", hardRemoveTorrents, reclaimedSpace),
 		time.Since(startTime),
 		fields,
+		flagDryRun,
 	)
 	if sendErr != nil {
 		log.WithError(sendErr).Error("Failed sending notification")

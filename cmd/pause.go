@@ -189,6 +189,7 @@ var pauseCmd = &cobra.Command{
 			fmt.Sprintf("Paused **%d** torrent(s)", len(pauseList)),
 			time.Since(start),
 			fields,
+			flagDryRun,
 		)
 		if sendErr != nil {
 			log.WithError(sendErr).Error("Failed sending notification")

@@ -18,7 +18,6 @@ import (
 )
 
 const (
-	maxFieldsPerEmbed   = 25
 	maxEmbedsPerMessage = 10
 	maxCharactersPerMsg = 6000
 
@@ -81,7 +80,16 @@ func NewDiscordSender(log *logrus.Entry, config config.NotificationsConfig) Send
 	}
 }
 
-func (d *discordSender) Send(title string, description string, runTime time.Duration, fields []Field) error {
+// Calculate the actual JSON size of an embed
+func (d *discordSender) calculateEmbedSize(embed DiscordEmbed) (int, error) {
+	jsonData, err := json.Marshal(embed)
+	if err != nil {
+		return 0, err
+	}
+	return len(jsonData), nil
+}
+
+func (d *discordSender) Send(title string, description string, runTime time.Duration, fields []Field, dryRun bool) error {
 	var (
 		allEmbeds   []DiscordEmbed
 		totalFields = len(fields)
@@ -92,19 +100,15 @@ func (d *discordSender) Send(title string, description string, runTime time.Dura
 		currentChars int
 	)
 
+	// Add (Dry Run) to title if enabled
+	if dryRun {
+		title = title + " (Dry Run)"
+	}
+
 	// if the config setting "skip_empty_run" is set to true, and there are no fields,
 	// skip sending the message entirely.
 	if totalFields == 0 && d.config.SkipEmptyRun {
 		return nil
-	}
-
-	// embedChars returns the number of characters in an embed.
-	embedChars := func(e DiscordEmbed) int {
-		count := len(e.Title) + len(e.Description)
-		for _, f := range e.Fields {
-			count += len(f.Name) + len(f.Value)
-		}
-		return count
 	}
 
 	rt := runTime.Truncate(time.Millisecond).String()
@@ -122,32 +126,37 @@ func (d *discordSender) Send(title string, description string, runTime time.Dura
 			Timestamp: timestamp,
 		})
 	} else {
-		df := d.convertFields(fields)
-
-		for i := 0; i < totalFields; i += maxFieldsPerEmbed {
-			end := i + maxFieldsPerEmbed
-			if end > totalFields {
-				end = totalFields
-			}
-
+		// Create one embed per torrent using the existing field data
+		for i, field := range fields {
 			embed := DiscordEmbed{
+				Title:  title,
 				Color:  int(LIGHT_BLUE),
-				Fields: df[i:end],
+				Fields: d.parseFieldValueToInlineFields(field.Value),
 				Footer: DiscordEmbedsFooter{
-					Text: d.buildFooter(end, totalFields, rt),
+					Text: d.buildFooter(i+1, totalFields, rt),
 				},
 				Timestamp: timestamp,
 			}
 
-			if i == 0 {
-				embed.Title = title
-				embed.Description = description
+			// Only add description if field name is not empty
+			if field.Name != "" {
+				embed.Description = fmt.Sprintf("**%s**", field.Name)
 			}
 
 			allEmbeds = append(allEmbeds, embed)
 		}
+		allEmbeds = append(allEmbeds, DiscordEmbed{
+			Title:       fmt.Sprintf("%s - Summary", title),
+			Description: description,
+			Color:       int(LIGHT_BLUE),
+			Footer: DiscordEmbedsFooter{
+				Text: d.buildFooter(0, 0, rt),
+			},
+			Timestamp: timestamp,
+		})
 	}
 
+	// Batch embeds for messages (max 10 embeds per message)
 	flush := func() {
 		if len(currentBatch) == 0 {
 			return
@@ -158,27 +167,24 @@ func (d *discordSender) Send(title string, description string, runTime time.Dura
 	}
 
 	for _, e := range allEmbeds {
-		eChars := embedChars(e)
+		eSize, err := d.calculateEmbedSize(e)
+		if err != nil {
+			return errors.Wrap(err, "failed to calculate embed size for batching")
+		}
 
 		// If adding this embed breaks either the embed-count or char limit, flush first
-		if len(currentBatch) >= maxEmbedsPerMessage || currentChars+eChars > maxCharactersPerMsg {
+		if len(currentBatch) >= maxEmbedsPerMessage || currentChars+eSize > maxCharactersPerMsg {
 			flush()
 		}
 
 		currentBatch = append(currentBatch, e)
-		currentChars += eChars
+		currentChars += eSize
 	}
 	flush()
 
 	totalMsgs := len(batches)
 
 	for i, batch := range batches {
-		// If more than one message, append the counter to the first embed’s title
-		if totalMsgs > 1 && len(batch) > 0 {
-			batch[0].Title = fmt.Sprintf("%s (%d/%d)", title, i+1, totalMsgs)
-			batch[0].Description = description
-		}
-
 		msg := DiscordMessage{
 			Content: nil,
 			Embeds:  batch,
@@ -188,7 +194,7 @@ func (d *discordSender) Send(title string, description string, runTime time.Dura
 			return errors.Wrap(err, "could not marshal json request for a message chunk")
 		}
 		if sendErr := d.sendRequest(jsonData); sendErr != nil {
-			return errors.Wrap(sendErr, "failed to send a message chunk to Discord")
+			return errors.Wrap(err, "failed to send a message chunk to Discord")
 		}
 
 		d.log.Debugf("Sent Discord message %d/%d (%d embeds, %d chars).",
@@ -239,8 +245,10 @@ func (d *discordSender) BuildField(action Action, opt BuildOptions) Field {
 		return d.buildRetagField(opt.Torrent, opt.NewTags, opt.NewUpLimit)
 	case ActionRelabel:
 		return d.buildRelabelField(opt.Torrent, opt.NewLabel)
-	case ActionClean, ActionPause:
+	case ActionClean:
 		return d.buildCleanField(opt.Torrent, opt.RemovalReason)
+	case ActionPause:
+		return d.buildPauseField(opt.Torrent)
 	case ActionOrphan:
 		return d.buildOrphanField(opt.Orphan, opt.OrphanSize, opt.IsFile)
 	}
@@ -248,33 +256,11 @@ func (d *discordSender) BuildField(action Action, opt BuildOptions) Field {
 	return Field{}
 }
 
-func (d *discordSender) convertFields(fields []Field) []DiscordEmbedsField {
-	var df []DiscordEmbedsField
-
-	for _, f := range fields {
-		df = append(df, DiscordEmbedsField{
-			Name:  f.Name,
-			Value: f.Value,
-		})
-	}
-
-	return df
-}
-
 func (d *discordSender) buildRetagField(torrent config.Torrent, newTags []string, newUpLimit int64) Field {
-	var data []Field
+	var inlineFields []DiscordEmbedsField
 
-	equal := func(fd []Field) bool {
-		return strings.EqualFold(fd[0].Value, fd[1].Value)
-	}
-
-	tagData := []Field{
-		{"Old Tags:", strings.Join(torrent.Tags, ", ")},
-		{"New Tags:", strings.Join(newTags, ", ")},
-	}
-
-	if !equal(tagData) {
-		data = append(data, tagData...)
+	equal := func(a, b string) bool {
+		return strings.EqualFold(a, b)
 	}
 
 	limitStr := func(limit int64) string {
@@ -284,100 +270,228 @@ func (d *discordSender) buildRetagField(torrent config.Torrent, newTags []string
 		return fmt.Sprintf("%d KiB/s", limit)
 	}
 
-	uploadData := []Field{
-		{"Old Upload Limit:", limitStr(torrent.UpLimit)},
-		{"New Upload Limit:", limitStr(newUpLimit)},
+	oldTags := strings.Join(torrent.Tags, ", ")
+	newTagsStr := strings.Join(newTags, ", ")
+	oldUpLimit := limitStr(torrent.UpLimit)
+	newUpLimitStr := limitStr(newUpLimit)
+
+	// Add fields only if they're different
+	if !equal(oldTags, newTagsStr) {
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "Old Tags",
+			Value:  oldTags,
+			Inline: true,
+		})
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "New Tags",
+			Value:  newTagsStr,
+			Inline: true,
+		})
 	}
 
-	if !equal(uploadData) {
-		data = append(data, uploadData...)
+	if !equal(oldUpLimit, newUpLimitStr) {
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "Old Upload Limit",
+			Value:  oldUpLimit,
+			Inline: true,
+		})
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "New Upload Limit",
+			Value:  newUpLimitStr,
+			Inline: true,
+		})
 	}
+
+	// Serialize to JSON to store in the field value
+	jsonData, _ := json.Marshal(inlineFields)
 
 	return Field{
 		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
-		Value: d.buildCodeBlock(data),
+		Value: string(jsonData),
 	}
 }
 
 func (d *discordSender) buildRelabelField(torrent config.Torrent, newLabel string) Field {
-	data := []Field{
-		{"Old Label:", torrent.Label},
-		{"New Label:", newLabel},
-	}
+	var inlineFields []DiscordEmbedsField
+
+	inlineFields = append(inlineFields, DiscordEmbedsField{
+		Name:   "Old Label",
+		Value:  torrent.Label,
+		Inline: true,
+	})
+	inlineFields = append(inlineFields, DiscordEmbedsField{
+		Name:   "New Label",
+		Value:  newLabel,
+		Inline: true,
+	})
+
+	// Serialize to JSON to store in the field value
+	jsonData, _ := json.Marshal(inlineFields)
 
 	return Field{
 		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
-		Value: d.buildCodeBlock(data),
+		Value: string(jsonData),
+	}
+}
+
+func (d *discordSender) buildPauseField(torrent config.Torrent) Field {
+	var inlineFields []DiscordEmbedsField
+
+	inlineFields = append(inlineFields, DiscordEmbedsField{
+		Name:   "Ratio",
+		Value:  fmt.Sprintf("%.2f", torrent.Ratio),
+		Inline: true,
+	})
+
+	if torrent.Label != "" {
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "Label",
+			Value:  torrent.Label,
+			Inline: true,
+		})
+	}
+
+	if len(torrent.Tags) > 0 && strings.Join(torrent.Tags, ", ") != "" {
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "Tags",
+			Value:  strings.Join(torrent.Tags, ", "),
+			Inline: true,
+		})
+	}
+
+	inlineFields = append(inlineFields, DiscordEmbedsField{
+		Name:   "Tracker",
+		Value:  torrent.TrackerName,
+		Inline: true,
+	})
+
+	if torrent.TrackerStatus != "" {
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "Tracker Status",
+			Value:  torrent.TrackerStatus,
+			Inline: false,
+		})
+	}
+
+	// No reason field for pause actions
+
+	// Serialize to JSON to store in the field value
+	jsonData, _ := json.Marshal(inlineFields)
+
+	return Field{
+		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
+		Value: string(jsonData),
 	}
 }
 
 func (d *discordSender) buildCleanField(torrent config.Torrent, removalReason string) Field {
-	data := []Field{
-		{"Ratio:", fmt.Sprintf("%.2f", torrent.Ratio)},
-	}
+	// Build inline fields directly and store as JSON in the value
+	var inlineFields []DiscordEmbedsField
+
+	inlineFields = append(inlineFields, DiscordEmbedsField{
+		Name:   "Ratio",
+		Value:  fmt.Sprintf("%.2f", torrent.Ratio),
+		Inline: true,
+	})
 
 	if torrent.Label != "" {
-		data = append(data, Field{"Label:", torrent.Label})
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "Label",
+			Value:  torrent.Label,
+			Inline: true,
+		})
 	}
 
 	if len(torrent.Tags) > 0 && strings.Join(torrent.Tags, ", ") != "" {
-		data = append(data, Field{"Tags:", strings.Join(torrent.Tags, ", ")})
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "Tags",
+			Value:  strings.Join(torrent.Tags, ", "),
+			Inline: true,
+		})
 	}
 
-	data = append(data, Field{"Tracker:", torrent.TrackerName})
+	inlineFields = append(inlineFields, DiscordEmbedsField{
+		Name:   "Tracker",
+		Value:  torrent.TrackerName,
+		Inline: true,
+	})
 
 	if torrent.TrackerStatus != "" {
-		data = append(data, Field{"Status:", torrent.TrackerStatus})
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "Tracker Status",
+			Value:  torrent.TrackerStatus,
+			Inline: false,
+		})
 	}
 
-	data = append(data, Field{"Reason:", removalReason})
+	inlineFields = append(inlineFields, DiscordEmbedsField{
+		Name:   "Reason",
+		Value:  removalReason,
+		Inline: false,
+	})
+
+	// Serialize to JSON to store in the field value
+	jsonData, _ := json.Marshal(inlineFields)
 
 	return Field{
 		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
-		Value: d.buildCodeBlock(data),
+		Value: string(jsonData),
 	}
+}
+
+// Updated parseFieldValueToInlineFields to handle JSON data
+func (d *discordSender) parseFieldValueToInlineFields(value string) []DiscordEmbedsField {
+	var fields []DiscordEmbedsField
+
+	// Parse as JSON (all field types now use this format)
+	if err := json.Unmarshal([]byte(value), &fields); err != nil {
+		// Log error but return empty fields rather than fallback
+		d.log.WithError(err).Error("Failed to parse field value as JSON")
+		return []DiscordEmbedsField{}
+	}
+
+	return fields
 }
 
 func (d *discordSender) buildOrphanField(orphan string, orphanSize int64, isFile bool) Field {
-	var (
-		sizeStr string
-		prefix  = "Folder"
-	)
+	var inlineFields []DiscordEmbedsField
 
+	prefix := "Folder"
 	if isFile {
 		prefix = "File"
-		sizeStr = fmt.Sprintf(" (%s)", humanize.IBytes(uint64(orphanSize)))
 	}
+
+	inlineFields = append(inlineFields, DiscordEmbedsField{
+		Name:   "Type",
+		Value:  prefix,
+		Inline: true,
+	})
+
+	if isFile {
+		inlineFields = append(inlineFields, DiscordEmbedsField{
+			Name:   "Size",
+			Value:  humanize.IBytes(uint64(orphanSize)),
+			Inline: true,
+		})
+	}
+
+	inlineFields = append(inlineFields, DiscordEmbedsField{
+		Name:   "Path",
+		Value:  orphan,
+		Inline: false,
+	})
+
+	// Serialize to JSON to store in the field value
+	jsonData, _ := json.Marshal(inlineFields)
 
 	return Field{
-		Name: fmt.Sprintf("%-*s%s%s", 10, prefix, orphan, sizeStr),
+		Name:  "", // Empty name since path is already in the Path field
+		Value: string(jsonData),
 	}
-}
-
-func (d *discordSender) buildCodeBlock(data []Field) string {
-	var maxLabelLen int
-	for _, dt := range data {
-		if len(dt.Name) > maxLabelLen {
-			maxLabelLen = len(dt.Name)
-		}
-	}
-
-	var sb strings.Builder
-	sb.WriteString("```\n")
-
-	for _, d := range data {
-		// %-*s left-justifies the label and pads it with spaces to maxLabelLen+5
-		line := fmt.Sprintf("%-*s%s\n", maxLabelLen+5, d.Name, d.Value)
-		sb.WriteString(line)
-	}
-
-	sb.WriteString("```")
-
-	return sb.String()
 }
 
 func (d *discordSender) buildFooter(progress int, totalFields int, runTime string) string {
-	if totalFields == 0 || totalFields > maxTotalFields || totalFields <= maxFieldsPerEmbed {
+	if totalFields == 0 {
 		return fmt.Sprintf("Started: %s ago", runTime)
 	}
 

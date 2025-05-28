@@ -18,7 +18,7 @@ const (
 
 type Sender interface {
 	CanSend() bool
-	Send(title string, description string, runTime time.Duration, fields []Field) error
+	Send(title string, description string, runTime time.Duration, fields []Field, dryRun bool) error
 	BuildField(action Action, options BuildOptions) Field
 	Name() string
 }
