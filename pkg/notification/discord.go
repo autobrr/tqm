@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/autobrr/autobrr/pkg/errors"
@@ -58,11 +61,151 @@ const (
 	GRAY       EmbedColors = 0x99aab5
 )
 
+// Discord markdown characters that need escaping
+var discordMarkdownChars = regexp.MustCompile(`([\\*_~` + "`" + `|>])`)
+
+// escapeDiscordMarkdown escapes Discord markdown formatting characters
+func escapeDiscordMarkdown(text string) string {
+	if text == "" {
+		return text
+	}
+
+	// Escape Discord markdown characters: \ * _ ~ ` | >
+	// We use a regex to find and escape these characters
+	return discordMarkdownChars.ReplaceAllString(text, `\$1`)
+}
+
+// DiscordRateLimit holds rate limit information from Discord headers
+type DiscordRateLimit struct {
+	Limit      int           // X-RateLimit-Limit
+	Remaining  int           // X-RateLimit-Remaining
+	ResetTime  time.Time     // X-RateLimit-Reset (unix timestamp)
+	Bucket     string        // X-RateLimit-Bucket
+	Scope      string        // X-RateLimit-Scope
+	Global     bool          // X-RateLimit-Global
+	RetryAfter time.Duration // Retry-After (if rate limited)
+}
+
+// RateLimiter manages Discord API rate limits
+type RateLimiter struct {
+	mu         sync.RWMutex
+	buckets    map[string]*DiscordRateLimit
+	globalLock *time.Time // When global rate limit expires
+	log        *logrus.Entry
+}
+
+func NewRateLimiter(log *logrus.Entry) *RateLimiter {
+	return &RateLimiter{
+		buckets: make(map[string]*DiscordRateLimit),
+		log:     log.WithField("component", "rate_limiter"),
+	}
+}
+
+// Wait blocks until it's safe to make a request
+func (rl *RateLimiter) Wait(bucket string) {
+	rl.mu.RLock()
+
+	// Check global rate limit first
+	if rl.globalLock != nil && time.Now().Before(*rl.globalLock) {
+		waitTime := time.Until(*rl.globalLock)
+		rl.mu.RUnlock()
+		rl.log.Warnf("Global rate limit active, waiting %v", waitTime)
+		time.Sleep(waitTime)
+		return
+	}
+
+	// Check bucket-specific rate limit
+	if limit, exists := rl.buckets[bucket]; exists {
+		if limit.Remaining <= 0 && time.Now().Before(limit.ResetTime) {
+			waitTime := time.Until(limit.ResetTime)
+			rl.mu.RUnlock()
+			rl.log.Warnf("Bucket %s rate limited, waiting %v", bucket, waitTime)
+			time.Sleep(waitTime)
+			return
+		}
+	}
+
+	rl.mu.RUnlock()
+}
+
+// Update processes rate limit headers from Discord response
+func (rl *RateLimiter) Update(bucket string, headers http.Header) {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	limit := &DiscordRateLimit{Bucket: bucket}
+
+	// Parse rate limit headers
+	if val := headers.Get("X-RateLimit-Limit"); val != "" {
+		if parsed, err := strconv.Atoi(val); err == nil {
+			limit.Limit = parsed
+		}
+	}
+
+	if val := headers.Get("X-RateLimit-Remaining"); val != "" {
+		if parsed, err := strconv.Atoi(val); err == nil {
+			limit.Remaining = parsed
+		}
+	}
+
+	if val := headers.Get("X-RateLimit-Reset"); val != "" {
+		if parsed, err := strconv.ParseFloat(val, 64); err == nil {
+			limit.ResetTime = time.Unix(int64(parsed), 0)
+		}
+	}
+
+	limit.Scope = headers.Get("X-RateLimit-Scope")
+	limit.Global = headers.Get("X-RateLimit-Global") == "true"
+
+	// Handle retry-after for rate limited requests
+	if val := headers.Get("Retry-After"); val != "" {
+		if parsed, err := strconv.ParseFloat(val, 64); err == nil {
+			limit.RetryAfter = time.Duration(parsed * float64(time.Second))
+
+			// Set global lock if this is a global rate limit
+			if limit.Global {
+				globalUnlock := time.Now().Add(limit.RetryAfter)
+				rl.globalLock = &globalUnlock
+				rl.log.Warnf("Global rate limit detected, locked until %v", globalUnlock)
+			}
+		}
+	}
+
+	// Store bucket rate limit info
+	rl.buckets[bucket] = limit
+
+	rl.log.Debugf("Rate limit updated for bucket %s: %d/%d remaining, resets at %v",
+		bucket, limit.Remaining, limit.Limit, limit.ResetTime)
+}
+
+// Clean removes expired rate limit entries
+func (rl *RateLimiter) Clean() {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	now := time.Now()
+
+	// Clean expired global lock
+	if rl.globalLock != nil && now.After(*rl.globalLock) {
+		rl.globalLock = nil
+		rl.log.Debug("Global rate limit expired")
+	}
+
+	// Clean expired bucket limits
+	for bucket, limit := range rl.buckets {
+		if now.After(limit.ResetTime) {
+			delete(rl.buckets, bucket)
+			rl.log.Debugf("Cleaned expired rate limit for bucket %s", bucket)
+		}
+	}
+}
+
 type discordSender struct {
 	log    *logrus.Entry
 	config config.NotificationsConfig
 
-	httpClient *http.Client
+	httpClient  *http.Client
+	rateLimiter *RateLimiter
 }
 
 func (d *discordSender) Name() string {
@@ -70,7 +213,7 @@ func (d *discordSender) Name() string {
 }
 
 func NewDiscordSender(log *logrus.Entry, config config.NotificationsConfig) Sender {
-	return &discordSender{
+	sender := &discordSender{
 		log:    log.WithField("sender", "discord"),
 		config: config,
 		httpClient: &http.Client{
@@ -78,6 +221,20 @@ func NewDiscordSender(log *logrus.Entry, config config.NotificationsConfig) Send
 			Transport: sharedhttp.Transport,
 		},
 	}
+
+	sender.rateLimiter = NewRateLimiter(sender.log)
+
+	// Start cleanup routine
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			sender.rateLimiter.Clean()
+		}
+	}()
+
+	return sender
 }
 
 // Calculate the actual JSON size of an embed
@@ -102,7 +259,7 @@ func (d *discordSender) Send(title string, description string, runTime time.Dura
 
 	// Add (Dry Run) to title if enabled
 	if dryRun {
-		title = title + " (Dry Run)"
+		title = title + " [Dry Run]"
 	}
 
 	// if the config setting "skip_empty_run" is set to true, and there are no fields,
@@ -129,7 +286,7 @@ func (d *discordSender) Send(title string, description string, runTime time.Dura
 		// Create one embed per torrent using the existing field data
 		for i, field := range fields {
 			embed := DiscordEmbed{
-				Title:  title,
+				Title:  escapeDiscordMarkdown(title),
 				Color:  int(LIGHT_BLUE),
 				Fields: d.parseFieldValueToInlineFields(field.Value),
 				Footer: DiscordEmbedsFooter{
@@ -140,7 +297,7 @@ func (d *discordSender) Send(title string, description string, runTime time.Dura
 
 			// Only add description if field name is not empty
 			if field.Name != "" {
-				embed.Description = fmt.Sprintf("**%s**", field.Name)
+				embed.Description = fmt.Sprintf("**%s**", escapeDiscordMarkdown(field.Name))
 			}
 
 			allEmbeds = append(allEmbeds, embed)
@@ -210,6 +367,13 @@ func (d *discordSender) CanSend() bool {
 }
 
 func (d *discordSender) sendRequest(jsonData []byte) error {
+	// Extract bucket identifier from webhook URL for rate limiting
+	// Discord webhooks use a per-webhook bucket system
+	bucket := d.getBucketFromURL(d.config.Service.Discord)
+
+	// Wait for rate limit clearance
+	d.rateLimiter.Wait(bucket)
+
 	req, err := http.NewRequest(http.MethodPost, d.config.Service.Discord, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return errors.Wrap(err, "could not create request")
@@ -223,7 +387,24 @@ func (d *discordSender) sendRequest(jsonData []byte) error {
 	}
 	defer res.Body.Close()
 
+	// Update rate limiter with response headers
+	d.rateLimiter.Update(bucket, res.Header)
+
 	d.log.Tracef("Discord response status: %d", res.StatusCode)
+
+	// Handle rate limit responses
+	if res.StatusCode == 429 {
+		body, readErr := io.ReadAll(bufio.NewReader(res.Body))
+		if readErr != nil {
+			return errors.Wrap(readErr, "could not read rate limit response body")
+		}
+
+		d.log.Warnf("Discord rate limit hit (429): %s", string(body))
+
+		// The rate limiter has already been updated with retry-after info
+		// Return error to indicate the request failed due to rate limiting
+		return errors.New("discord rate limit exceeded, request will be retried")
+	}
 
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
 		body, readErr := io.ReadAll(bufio.NewReader(res.Body))
@@ -236,6 +417,20 @@ func (d *discordSender) sendRequest(jsonData []byte) error {
 
 	d.log.Debug("Notification successfully sent to discord")
 	return nil
+}
+
+// getBucketFromURL extracts a bucket identifier from the webhook URL
+// For Discord webhooks, we can use the webhook ID as the bucket identifier
+func (d *discordSender) getBucketFromURL(webhookURL string) string {
+	// Discord webhook URLs follow the pattern:
+	// https://discord.com/api/webhooks/{webhook.id}/{webhook.token}
+	parts := strings.Split(webhookURL, "/")
+	if len(parts) >= 6 && parts[4] == "webhooks" {
+		return fmt.Sprintf("webhook_%s", parts[5]) // Use webhook ID as bucket
+	}
+
+	// Fallback to generic bucket if URL parsing fails
+	return "webhook_default"
 }
 
 // BuildField constructs a Field based on the provided action and build options.
@@ -279,12 +474,12 @@ func (d *discordSender) buildRetagField(torrent config.Torrent, newTags []string
 	if !equal(oldTags, newTagsStr) {
 		inlineFields = append(inlineFields, DiscordEmbedsField{
 			Name:   "Old Tags",
-			Value:  oldTags,
+			Value:  escapeDiscordMarkdown(oldTags),
 			Inline: true,
 		})
 		inlineFields = append(inlineFields, DiscordEmbedsField{
 			Name:   "New Tags",
-			Value:  newTagsStr,
+			Value:  escapeDiscordMarkdown(newTagsStr),
 			Inline: true,
 		})
 	}
@@ -292,12 +487,12 @@ func (d *discordSender) buildRetagField(torrent config.Torrent, newTags []string
 	if !equal(oldUpLimit, newUpLimitStr) {
 		inlineFields = append(inlineFields, DiscordEmbedsField{
 			Name:   "Old Upload Limit",
-			Value:  oldUpLimit,
+			Value:  escapeDiscordMarkdown(oldUpLimit),
 			Inline: true,
 		})
 		inlineFields = append(inlineFields, DiscordEmbedsField{
 			Name:   "New Upload Limit",
-			Value:  newUpLimitStr,
+			Value:  escapeDiscordMarkdown(newUpLimitStr),
 			Inline: true,
 		})
 	}
@@ -306,7 +501,7 @@ func (d *discordSender) buildRetagField(torrent config.Torrent, newTags []string
 	jsonData, _ := json.Marshal(inlineFields)
 
 	return Field{
-		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
+		Name:  escapeDiscordMarkdown(fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes)))),
 		Value: string(jsonData),
 	}
 }
@@ -316,12 +511,12 @@ func (d *discordSender) buildRelabelField(torrent config.Torrent, newLabel strin
 
 	inlineFields = append(inlineFields, DiscordEmbedsField{
 		Name:   "Old Label",
-		Value:  torrent.Label,
+		Value:  escapeDiscordMarkdown(torrent.Label),
 		Inline: true,
 	})
 	inlineFields = append(inlineFields, DiscordEmbedsField{
 		Name:   "New Label",
-		Value:  newLabel,
+		Value:  escapeDiscordMarkdown(newLabel),
 		Inline: true,
 	})
 
@@ -329,7 +524,7 @@ func (d *discordSender) buildRelabelField(torrent config.Torrent, newLabel strin
 	jsonData, _ := json.Marshal(inlineFields)
 
 	return Field{
-		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
+		Name:  escapeDiscordMarkdown(fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes)))),
 		Value: string(jsonData),
 	}
 }
@@ -346,7 +541,7 @@ func (d *discordSender) buildPauseField(torrent config.Torrent) Field {
 	if torrent.Label != "" {
 		inlineFields = append(inlineFields, DiscordEmbedsField{
 			Name:   "Label",
-			Value:  torrent.Label,
+			Value:  escapeDiscordMarkdown(torrent.Label),
 			Inline: true,
 		})
 	}
@@ -354,21 +549,21 @@ func (d *discordSender) buildPauseField(torrent config.Torrent) Field {
 	if len(torrent.Tags) > 0 && strings.Join(torrent.Tags, ", ") != "" {
 		inlineFields = append(inlineFields, DiscordEmbedsField{
 			Name:   "Tags",
-			Value:  strings.Join(torrent.Tags, ", "),
+			Value:  escapeDiscordMarkdown(strings.Join(torrent.Tags, ", ")),
 			Inline: true,
 		})
 	}
 
 	inlineFields = append(inlineFields, DiscordEmbedsField{
 		Name:   "Tracker",
-		Value:  torrent.TrackerName,
+		Value:  escapeDiscordMarkdown(torrent.TrackerName),
 		Inline: true,
 	})
 
 	if torrent.TrackerStatus != "" {
 		inlineFields = append(inlineFields, DiscordEmbedsField{
 			Name:   "Tracker Status",
-			Value:  torrent.TrackerStatus,
+			Value:  escapeDiscordMarkdown(torrent.TrackerStatus),
 			Inline: false,
 		})
 	}
@@ -379,7 +574,7 @@ func (d *discordSender) buildPauseField(torrent config.Torrent) Field {
 	jsonData, _ := json.Marshal(inlineFields)
 
 	return Field{
-		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
+		Name:  escapeDiscordMarkdown(fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes)))),
 		Value: string(jsonData),
 	}
 }
@@ -397,7 +592,7 @@ func (d *discordSender) buildCleanField(torrent config.Torrent, removalReason st
 	if torrent.Label != "" {
 		inlineFields = append(inlineFields, DiscordEmbedsField{
 			Name:   "Label",
-			Value:  torrent.Label,
+			Value:  escapeDiscordMarkdown(torrent.Label),
 			Inline: true,
 		})
 	}
@@ -405,28 +600,28 @@ func (d *discordSender) buildCleanField(torrent config.Torrent, removalReason st
 	if len(torrent.Tags) > 0 && strings.Join(torrent.Tags, ", ") != "" {
 		inlineFields = append(inlineFields, DiscordEmbedsField{
 			Name:   "Tags",
-			Value:  strings.Join(torrent.Tags, ", "),
+			Value:  escapeDiscordMarkdown(strings.Join(torrent.Tags, ", ")),
 			Inline: true,
 		})
 	}
 
 	inlineFields = append(inlineFields, DiscordEmbedsField{
 		Name:   "Tracker",
-		Value:  torrent.TrackerName,
+		Value:  escapeDiscordMarkdown(torrent.TrackerName),
 		Inline: true,
 	})
 
 	if torrent.TrackerStatus != "" {
 		inlineFields = append(inlineFields, DiscordEmbedsField{
 			Name:   "Tracker Status",
-			Value:  torrent.TrackerStatus,
+			Value:  escapeDiscordMarkdown(torrent.TrackerStatus),
 			Inline: false,
 		})
 	}
 
 	inlineFields = append(inlineFields, DiscordEmbedsField{
 		Name:   "Reason",
-		Value:  removalReason,
+		Value:  escapeDiscordMarkdown(removalReason),
 		Inline: false,
 	})
 
@@ -434,7 +629,7 @@ func (d *discordSender) buildCleanField(torrent config.Torrent, removalReason st
 	jsonData, _ := json.Marshal(inlineFields)
 
 	return Field{
-		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
+		Name:  escapeDiscordMarkdown(fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes)))),
 		Value: string(jsonData),
 	}
 }
@@ -477,7 +672,7 @@ func (d *discordSender) buildOrphanField(orphan string, orphanSize int64, isFile
 
 	inlineFields = append(inlineFields, DiscordEmbedsField{
 		Name:   "Path",
-		Value:  orphan,
+		Value:  escapeDiscordMarkdown(orphan),
 		Inline: false,
 	})
 
