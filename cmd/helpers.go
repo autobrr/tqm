@@ -12,6 +12,7 @@ import (
 	"github.com/autobrr/tqm/pkg/client"
 	"github.com/autobrr/tqm/pkg/config"
 	"github.com/autobrr/tqm/pkg/hardlinkfilemap"
+	"github.com/autobrr/tqm/pkg/notification"
 	"github.com/autobrr/tqm/pkg/torrentfilemap"
 )
 
@@ -27,11 +28,15 @@ func removeSlice(slice []string, remove []string) []string {
 }
 
 // retag torrent that meet required filters
-func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagInterface, torrents map[string]config.Torrent) error {
+func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagInterface, torrents map[string]config.Torrent, noti notification.Sender, client string, startTime time.Time) error {
 	// vars
-	ignoredTorrents := 0
-	retaggedTorrents := 0
-	errorRetaggedTorrents := 0
+	var (
+		ignoredTorrents       int
+		retaggedTorrents      int
+		errorRetaggedTorrents int
+
+		fields []notification.Field
+	)
 
 	// iterate torrents
 	for h, t := range torrents {
@@ -53,16 +58,20 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 			continue
 		}
 
+		// initialize with torrent values
+		finalTags := t.Tags
+		limitKb := t.UpLimit
+
 		// retag
 		log.Info("-----")
 		actionLogs := []string{}
 		if len(retagInfo.Add) > 0 || len(retagInfo.Remove) > 0 {
 			currentTags := removeSlice(t.Tags, retagInfo.Remove)
-			finalTags := append(currentTags, retagInfo.Add...)
+			finalTags = append(currentTags, retagInfo.Add...)
 			actionLogs = append(actionLogs, fmt.Sprintf("Retagging to: [%s]", strings.Join(finalTags, ", ")))
 		}
 		if retagInfo.UploadKb != nil {
-			limitKb := *retagInfo.UploadKb
+			limitKb = *retagInfo.UploadKb
 			if limitKb == -1 {
 				actionLogs = append(actionLogs, "Setting upload limit: Unlimited")
 			} else {
@@ -124,6 +133,11 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 		}
 
 		if actionTaken || flagDryRun && shouldTakeAction {
+			fields = append(fields, noti.BuildField(notification.ActionRetag, notification.BuildOptions{
+				Torrent:    t,
+				NewTags:    finalTags,
+				NewUpLimit: limitKb,
+			}))
 			retaggedTorrents++
 		}
 	}
@@ -132,17 +146,38 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 	log.Info("-----")
 	log.Infof("Ignored torrents: %d", ignoredTorrents)
 	log.Infof("Retagged torrents: %d, %d failures", retaggedTorrents, errorRetaggedTorrents)
+
+	if !noti.CanSend() {
+		log.Debug("Notifications disabled, skipping...")
+		return nil
+	}
+
+	sendErr := noti.Send(
+		"Torrent Retag",
+		fmt.Sprintf("Retagged **%d** torrent(s)", retaggedTorrents),
+		client,
+		time.Since(startTime),
+		fields,
+		flagDryRun,
+	)
+	if sendErr != nil {
+		log.WithError(sendErr).Error("Failed sending notification")
+	}
+
 	return nil
 }
 
 // relabel torrent that meet required filters
-func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Interface, torrents map[string]config.Torrent,
-	tfm *torrentfilemap.TorrentFileMap) error {
+func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Interface, torrents map[string]config.Torrent, tfm *torrentfilemap.TorrentFileMap, noti notification.Sender, client string, startTime time.Time) error {
 	// vars
-	ignoredTorrents := 0
-	nonUniqueTorrents := 0
-	relabeledTorrents := 0
-	errorRelabelTorrents := 0
+	var (
+		ignoredTorrents      int
+		nonUniqueTorrents    int
+		relabeledTorrents    int
+		errorRelabelTorrents int
+
+		fields []notification.Field
+	)
 
 	// iterate torrents
 	for h, t := range torrents {
@@ -200,6 +235,10 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 			log.Warn("Dry-run enabled, skipping relabel...")
 		}
 
+		fields = append(fields, noti.BuildField(notification.ActionRelabel, notification.BuildOptions{
+			Torrent:  t,
+			NewLabel: label,
+		}))
 		relabeledTorrents++
 	}
 
@@ -210,17 +249,36 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 		log.Infof("Non-unique torrents: %d", nonUniqueTorrents)
 	}
 	log.Infof("Relabeled torrents: %d, %d failures", relabeledTorrents, errorRelabelTorrents)
+
+	if !noti.CanSend() {
+		log.Debug("Notifications disabled, skipping...")
+		return nil
+	}
+
+	sendErr := noti.Send(
+		"Torrent Relabel",
+		fmt.Sprintf("Relabeled **%d** torrent(s)", relabeledTorrents),
+		client,
+		time.Since(startTime),
+		fields,
+		flagDryRun,
+	)
+	if sendErr != nil {
+		log.WithError(sendErr).Error("Failed sending notification")
+	}
+
 	return nil
 }
 
 // remove torrents that meet remove filters
-func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Interface, torrents map[string]config.Torrent,
-	tfm *torrentfilemap.TorrentFileMap, hfm hardlinkfilemap.HardlinkFileMapI, filter *config.FilterConfiguration) error {
+func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Interface, torrents map[string]config.Torrent, tfm *torrentfilemap.TorrentFileMap, hfm hardlinkfilemap.HardlinkFileMapI, filter *config.FilterConfiguration, noti notification.Sender, client string, startTime time.Time) error {
 	// vars
-	ignoredTorrents := 0
-	hardRemoveTorrents := 0
-	errorRemoveTorrents := 0
-	var removedTorrentBytes int64 = 0
+	var (
+		ignoredTorrents     int
+		hardRemoveTorrents  int
+		errorRemoveTorrents int
+		removedTorrentBytes int64
+	)
 
 	deleteData := true
 	if filter != nil && filter.DeleteData != nil {
@@ -228,7 +286,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	}
 
 	// helper function to handle removal of torrents that aren't unique
-	handleNonUniqueTorrent := func(ctx context.Context, h string, t *config.Torrent, isHardlinked bool) bool {
+	handleNonUniqueTorrent := func(ctx context.Context, h string, t *config.Torrent, isHardlinked bool, reason string) bool {
 		// Check if torrent is unregistered (can bypass uniqueness checks)
 		if t.IsUnregistered(ctx) {
 			// For unregistered torrents, override safety checks
@@ -238,6 +296,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 			} else {
 				log.Infof("removing unregistered non-unique torrent (file overlap): %q - %s", t.Name, humanize.IBytes(uint64(t.DownloadedBytes)))
 			}
+			log.Debugf("Removal reason: %s", reason)
 			log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
 				"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
 
@@ -310,8 +369,10 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		return false
 	}
 
+	var fields []notification.Field
+
 	// helper function to remove torrent
-	removeTorrent := func(ctx context.Context, h string, t *config.Torrent) {
+	removeTorrent := func(ctx context.Context, h string, t *config.Torrent, reason string) {
 		// remove the torrent
 		log.Info("-----")
 		if !t.FreeSpaceSet {
@@ -322,6 +383,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 				humanize.IBytes(uint64(t.DownloadedBytes)), t.FreeSpaceGB())
 		}
 
+		log.Debugf("Removal reason: %s", reason)
 		log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
 			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
 
@@ -363,6 +425,11 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 			log.Warn("Dry-run enabled, skipping remove...")
 		}
 
+		fields = append(fields, noti.BuildField(notification.ActionClean, notification.BuildOptions{
+			Torrent:       *t,
+			RemovalReason: reason,
+		}))
+
 		// increased hard removed counters
 		removedTorrentBytes += t.DownloadedBytes
 		hardRemoveTorrents++
@@ -374,6 +441,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 
 	// iterate torrents
 	candidates := make(map[string]config.Torrent)
+	candidateReasons := make(map[string]string)
 	for h, t := range torrents {
 		// should we ignore this torrent?
 		ignore, err := c.ShouldIgnore(ctx, &t)
@@ -391,7 +459,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		}
 
 		// should we remove this torrent?
-		remove, err := c.ShouldRemove(ctx, &t)
+		remove, reason, err := c.ShouldRemoveWithReason(ctx, &t)
 		if err != nil {
 			log.WithError(err).Errorf("Failed determining whether to remove: %+v", t)
 			// dont do any further operations on this torrent, but keep in the torrent file map
@@ -420,17 +488,18 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		}
 
 		if isNotUnique {
-			if handled := handleNonUniqueTorrent(ctx, h, &t, isHardlinked); handled {
+			if handled := handleNonUniqueTorrent(ctx, h, &t, isHardlinked, reason); handled {
 				// Torrent was handled (removed) in the function
 				continue
 			} else {
 				// Torrent was not removed, add to candidates
 				candidates[h] = t
+				candidateReasons[h] = reason
 				continue
 			}
 		}
 
-		removeTorrent(ctx, h, &t)
+		removeTorrent(ctx, h, &t, reason)
 	}
 
 	log.Info("========================================")
@@ -455,15 +524,35 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 			continue
 		}
 
-		removeTorrent(ctx, h, &t)
+		reason := candidateReasons[h]
+		removeTorrent(ctx, h, &t, reason)
 		removedCandidates++
 	}
+
+	reclaimedSpace := humanize.IBytes(uint64(removedTorrentBytes))
 
 	// show result
 	log.Info("-----")
 	log.Infof("Ignored torrents: %d", ignoredTorrents)
-	log.WithField("reclaimed_space", humanize.IBytes(uint64(removedTorrentBytes))).
+	log.WithField("reclaimed_space", reclaimedSpace).
 		Infof("Removed torrents: %d initially removed, %d cross-seeded torrents were candidates for removal, only %d of them removed and %d failures",
 			hardRemoveTorrents-removedCandidates, len(candidates), removedCandidates, errorRemoveTorrents)
+
+	if !noti.CanSend() {
+		log.Debug("Notifications disabled, skipping...")
+		return nil
+	}
+
+	sendErr := noti.Send(
+		"Torrent Cleanup",
+		fmt.Sprintf("Removed **%d** torrent(s) | Total reclaimed **%s**", hardRemoveTorrents, reclaimedSpace),
+		client,
+		time.Since(startTime),
+		fields,
+		flagDryRun,
+	)
+	if sendErr != nil {
+		log.WithError(sendErr).Error("Failed sending notification")
+	}
 	return nil
 }

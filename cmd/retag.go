@@ -11,6 +11,7 @@ import (
 	"github.com/autobrr/tqm/pkg/expression"
 	"github.com/autobrr/tqm/pkg/hardlinkfilemap"
 	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/notification"
 	"github.com/autobrr/tqm/pkg/sliceutils"
 	"github.com/autobrr/tqm/pkg/tracker"
 )
@@ -23,6 +24,8 @@ var retagCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := cmd.Context()
+		startTime := time.Now()
+
 		// init core
 		if !initialized {
 			initCore(true)
@@ -31,6 +34,8 @@ var retagCmd = &cobra.Command{
 
 		// set log
 		log := logger.GetLogger("retag")
+
+		noti := notification.NewDiscordSender(log, config.Config.Notifications)
 
 		// retrieve client object
 		clientName := args[0]
@@ -162,7 +167,7 @@ var retagCmd = &cobra.Command{
 		}
 
 		// relabel torrents that meet the filter criteria
-		if err := retagEligibleTorrents(ctx, log, ct, torrents); err != nil {
+		if err := retagEligibleTorrents(ctx, log, ct, torrents, noti, clientName, startTime); err != nil {
 			log.WithError(err).Fatal("Failed retagging eligible torrents...")
 		}
 	},

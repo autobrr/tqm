@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"sort"
@@ -15,6 +16,7 @@ import (
 	"github.com/autobrr/tqm/pkg/client"
 	"github.com/autobrr/tqm/pkg/config"
 	"github.com/autobrr/tqm/pkg/logger"
+	"github.com/autobrr/tqm/pkg/notification"
 	paths "github.com/autobrr/tqm/pkg/pathutils"
 	"github.com/autobrr/tqm/pkg/torrentfilemap"
 	"github.com/autobrr/tqm/pkg/tracker"
@@ -28,6 +30,7 @@ var orphanCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := cmd.Context()
+		start := time.Now()
 
 		// init core
 		if !initialized {
@@ -37,6 +40,8 @@ var orphanCmd = &cobra.Command{
 
 		// set log
 		log := logger.GetLogger("orphan")
+
+		noti := notification.NewDiscordSender(log, config.Config.Notifications)
 
 		// retrieve client object
 		clientName := args[0]
@@ -135,6 +140,7 @@ var orphanCmd = &cobra.Command{
 		var removedLocalFiles atomic.Uint32
 		var ignoredLocalFiles atomic.Uint32
 		var removedLocalFilesSize atomic.Uint64
+		var fields []notification.Field
 
 		filter, err := getClientFilter(clientConfig)
 		if err != nil {
@@ -210,6 +216,14 @@ var orphanCmd = &cobra.Command{
 			if removed {
 				removedLocalFilesSize.Add(uint64(localPathSize))
 				removedLocalFiles.Add(1)
+
+				mu.Lock()
+				fields = append(fields, noti.BuildField(notification.ActionOrphan, notification.BuildOptions{
+					Orphan:     localPath,
+					OrphanSize: localPathSize,
+					IsFile:     true,
+				}))
+				mu.Unlock()
 			}
 		}, &wg)
 
@@ -268,6 +282,11 @@ var orphanCmd = &cobra.Command{
 			}
 
 			if removed {
+				fields = append(fields, noti.BuildField(notification.ActionOrphan, notification.BuildOptions{
+					Orphan:     localPath,
+					OrphanSize: 0,
+					IsFile:     false,
+				}))
 				removedLocalFolders++
 			}
 		}
@@ -276,6 +295,24 @@ var orphanCmd = &cobra.Command{
 		log.WithField("reclaimed_space", humanize.IBytes(removedLocalFilesSize.Load())).
 			Infof("Removed orphans: %d files, %d folders and %d failures. Ignored %d files and %d folders",
 				removedLocalFiles.Load(), removedLocalFolders, removeFailures.Load(), ignoredLocalFiles.Load(), ignoredLocalFolders)
+
+		if !noti.CanSend() {
+			log.Debug("Notifications disabled, skipping...")
+			return
+		}
+
+		sendErr := noti.Send(
+			"Orphans",
+			fmt.Sprintf("Removed **%d** orphaned files and **%d** orphaned folders | Total reclaimed **%s**",
+				removedLocalFiles.Load(), removedLocalFolders, humanize.IBytes(removedLocalFilesSize.Load())),
+			clientName,
+			time.Since(start),
+			fields,
+			flagDryRun,
+		)
+		if sendErr != nil {
+			log.WithError(sendErr).Error("Failed sending notification")
+		}
 	},
 }
 

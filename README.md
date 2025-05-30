@@ -40,6 +40,19 @@ clients:
     # will be enabled for torrents after a relabel.
     # This ensures the torrent is also moved in the filesystem to the new category path, and not only changes category in qbit
     # enableAutoTmmAfterRelabel: true
+notifications:
+  # if detailed is true, TQM will send detailed information about each action it takes
+  # if it is false it will only send a summary notification
+  detailed: true
+  # if skip_empty_run is true, TQM will skip sending a notification if the action didn't change anything
+  skip_empty_run: true
+  service:
+    discord:
+      webhook_url: https://discord.com/api/webhooks/yourwebhookid/yourwebhooktoken
+      # Both username and avatar_url are optional and only needed if you want to
+      # change the name and the picture of the webhook account
+      username: yourusername
+      avatar_url: youravatarurl
 filters:
   default:
     # if true, data will be deleted from disk when removing torrents (default: true)

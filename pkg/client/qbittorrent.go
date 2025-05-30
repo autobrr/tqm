@@ -408,6 +408,15 @@ func (c *QBittorrent) ShouldRemove(ctx context.Context, t *config.Torrent) (bool
 	return match, nil
 }
 
+func (c *QBittorrent) ShouldRemoveWithReason(ctx context.Context, t *config.Torrent) (bool, string, error) {
+	match, reason, err := expression.CheckTorrentSingleMatchWithReason(ctx, t, c.exp.Removes)
+	if err != nil {
+		return false, "", fmt.Errorf("check remove expression: %v: %w", t.Hash, err)
+	}
+
+	return match, reason, nil
+}
+
 func (c *QBittorrent) ShouldRelabel(ctx context.Context, t *config.Torrent) (string, bool, error) {
 	for _, label := range c.exp.Labels {
 		// check update

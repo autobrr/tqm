@@ -2,22 +2,27 @@ package expression
 
 import "github.com/expr-lang/expr/vm"
 
+type CompiledExpression struct {
+	Program *vm.Program
+	Text    string
+}
+
 type Expressions struct {
-	Ignores []*vm.Program
-	Removes []*vm.Program
-	Pauses  []*vm.Program
+	Ignores []CompiledExpression
+	Removes []CompiledExpression
+	Pauses  []CompiledExpression
 	Labels  []*LabelExpression
 	Tags    []*TagExpression
 }
 
 type LabelExpression struct {
 	Name    string
-	Updates []*vm.Program
+	Updates []CompiledExpression
 }
 
 type TagExpression struct {
 	Name     string
 	Mode     string
 	UploadKb *int
-	Updates  []*vm.Program
+	Updates  []CompiledExpression
 }
