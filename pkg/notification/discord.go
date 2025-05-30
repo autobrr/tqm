@@ -311,15 +311,18 @@ func (d *discordSender) Send(title string, description string, client string, ru
 			allEmbeds = append(allEmbeds, embed)
 		}
 
-		allEmbeds = append(allEmbeds, DiscordEmbed{
-			Title:       fmt.Sprintf("%s - Summary", title),
-			Description: description,
-			Color:       int(LIGHT_BLUE),
-			Footer: DiscordEmbedsFooter{
-				Text: d.buildFooter(0, 0, client, rt),
-			},
-			Timestamp: timestamp,
-		})
+		// Add a summary embed if there is more than one field
+		if totalFields > 1 {
+			allEmbeds = append(allEmbeds, DiscordEmbed{
+				Title:       fmt.Sprintf("%s - Summary", title),
+				Description: description,
+				Color:       int(LIGHT_BLUE),
+				Footer: DiscordEmbedsFooter{
+					Text: d.buildFooter(0, 0, client, rt),
+				},
+				Timestamp: timestamp,
+			})
+		}
 	}
 
 	// Batch embeds for messages (max 10 embeds per message)
