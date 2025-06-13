@@ -12,6 +12,14 @@ import (
 	"github.com/autobrr/tqm/pkg/tracker"
 )
 
+type TorrentRegistrationState uint8
+
+const (
+	NoRegistrationState TorrentRegistrationState = iota
+	UnregisteredState
+	RegisteredState
+)
+
 var (
 	// defaultUnregisteredStatuses holds the default list if none is provided in config.
 	defaultUnregisteredStatuses = []string{
@@ -132,6 +140,8 @@ type Torrent struct {
 	TrackerStatus string `json:"TrackerStatus"`
 	Comment       string `json:"Comment"`
 
+	RegistrationState TorrentRegistrationState `json:"-"`
+
 	// set by command
 	HardlinkedOutsideClient bool `json:"-"`
 
@@ -184,11 +194,21 @@ func InitializeTrackerStatuses(perTrackerOverrides map[string][]string) {
 }
 
 func (t *Torrent) IsUnregistered(ctx context.Context) bool {
+	switch t.RegistrationState {
+	case NoRegistrationState:
+	case UnregisteredState:
+		return true
+	case RegisteredState:
+		return false
+	}
+
 	if t.TrackerStatus == "" {
+		t.RegistrationState = RegisteredState
 		return false
 	}
 
 	if t.IsTrackerDown() {
+		t.RegistrationState = RegisteredState
 		return false
 	}
 
@@ -223,11 +243,21 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 			Comment:         t.Comment,
 		}
 
+		trackerName := tr.Name()
 		if err, ur := tr.IsUnregistered(ctx, tt); err == nil {
+			switch ur {
+			case true:
+				log.Debugf("%s (hash: %s) confirmed as unregistered by %s API", t.Name, t.Hash, trackerName)
+				t.RegistrationState = UnregisteredState
+			default:
+				log.Debugf("%s (hash: %s) not reported as unregistered by %s API", t.Name, t.Hash, trackerName)
+				t.RegistrationState = RegisteredState
+			}
 			return ur
 		}
 	}
 
+	t.RegistrationState = RegisteredState
 	return false
 }
 
