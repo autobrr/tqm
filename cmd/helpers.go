@@ -278,6 +278,8 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		hardRemoveTorrents  int
 		errorRemoveTorrents int
 		removedTorrentBytes int64
+
+		fields []notification.Field
 	)
 
 	deleteData := true
@@ -346,6 +348,11 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 				log.Warn("Dry-run enabled, skipping remove...")
 			}
 
+			fields = append(fields, noti.BuildField(notification.ActionClean, notification.BuildOptions{
+				Torrent:       *t,
+				RemovalReason: reason,
+			}))
+
 			// increased hard removed counters
 			removedTorrentBytes += t.DownloadedBytes
 			hardRemoveTorrents++
@@ -368,8 +375,6 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		// Important! We need to return the torrent so it can be added to candidates in the caller
 		return false
 	}
-
-	var fields []notification.Field
 
 	// helper function to remove torrent
 	removeTorrent := func(ctx context.Context, h string, t *config.Torrent, reason string) {
