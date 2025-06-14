@@ -94,6 +94,10 @@ var (
 		"host not found",
 		"offline",
 		"your request could not be processed, please try again later",
+
+		// BHD - Does not mean the tracker is down
+		// It means that the torrent is under moderation
+		"torrent has been postponed",
 	}
 )
 
