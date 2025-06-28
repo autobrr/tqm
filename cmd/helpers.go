@@ -377,7 +377,8 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	}
 
 	// iterate torrents
-	candidates := make(map[string]config.Torrent)
+	hardlinkedCandidates := make(map[string]config.Torrent)
+	fileOverlapCandidates := make(map[string]config.Torrent)
 	candidateReasons := make(map[string]string)
 	for h, t := range torrents {
 		// should we ignore this torrent?
@@ -434,19 +435,20 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 				continue
 			}
 
-			// For regular non-unique torrents, add to candidates for later processing
+			// For regular non-unique torrents, add to appropriate candidates list
 			if isHardlinked {
 				log.Info("-----")
 				log.Warnf("Skipping non-unique torrent (hardlinked) | Name: %s / Label: %s / Tags: %s / Tracker: %s",
 					t.Name, t.Label, strings.Join(t.Tags, ", "), t.TrackerName)
+				hardlinkedCandidates[h] = t
+				candidateReasons[h] = reason
 			} else {
 				log.Info("-----")
 				log.Warnf("Skipping non-unique torrent (file overlap) | Name: %s / Label: %s / Tags: %s / Tracker: %s",
 					t.Name, t.Label, strings.Join(t.Tags, ", "), t.TrackerName)
+				fileOverlapCandidates[h] = t
+				candidateReasons[h] = reason
 			}
-
-			candidates[h] = t
-			candidateReasons[h] = reason
 			continue
 		}
 
@@ -455,20 +457,25 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	}
 
 	log.Info("========================================")
-	log.Infof("Finished initial check, %d cross-seeded torrents are candidates for removal", len(candidates))
+	log.Infof("Finished initial check, %d hardlinked candidates and %d file overlap candidates for removal", len(hardlinkedCandidates), len(fileOverlapCandidates))
 	log.Info("========================================")
 
 	// imagine we removed all candidates,
 	// now lets check if the candidates still have more versions
 	// or can be safely removed
-	for _, t := range candidates {
+	for _, t := range fileOverlapCandidates {
 		tfm.Remove(t)
 		hfm.RemoveByTorrent(t)
 	}
 
-	// check again for unique torrents
+	for _, t := range hardlinkedCandidates {
+		tfm.Remove(t)
+		hfm.RemoveByTorrent(t)
+	}
+
+	// Process file overlap candidates - these can be removed without data deletion
 	removedCandidates := 0
-	for h, t := range candidates {
+	for h, t := range fileOverlapCandidates {
 		noInstances := tfm.NoInstances(t) && hfm.NoInstances(t)
 
 		if !noInstances {
@@ -476,24 +483,22 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 			continue
 		}
 
-		// Check if the torrent is not unique (either through file mapping or hardlinks)
-		isUnique := true
-		isHardlinked := false
+		reason := candidateReasons[h]
+		removeTorrent(ctx, h, &t, reason, false, false, false)
+		removedCandidates++
+	}
 
-		if !tfm.IsUnique(t) {
-			// the files are not unique and eligible for a hard deletion (remove data)
-			isUnique = false
-			isHardlinked = false
-		}
+	// Process hardlinked candidates - these can be removed with data deletion
+	for h, t := range hardlinkedCandidates {
+		noInstances := tfm.NoInstances(t) && hfm.NoInstances(t)
 
-		if !hfm.IsTorrentUnique(t) {
-			// the files are hardlinked to other torrents
-			isUnique = false
-			isHardlinked = true
+		if !noInstances {
+			log.Tracef("%s still not unique", t.Name)
+			continue
 		}
 
 		reason := candidateReasons[h]
-		removeTorrent(ctx, h, &t, reason, isHardlinked, isUnique, false)
+		removeTorrent(ctx, h, &t, reason, true, false, false)
 		removedCandidates++
 	}
 
@@ -503,8 +508,8 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	log.Info("-----")
 	log.Infof("Ignored torrents: %d", ignoredTorrents)
 	log.WithField("reclaimed_space", reclaimedSpace).
-		Infof("Removed torrents: %d initially removed, %d cross-seeded torrents were candidates for removal, only %d of them removed and %d failures",
-			hardRemoveTorrents-removedCandidates, len(candidates), removedCandidates, errorRemoveTorrents)
+		Infof("Removed torrents: %d initially removed, %d hardlinked candidates, %d file overlap candidates were candidates for removal, only %d of them removed and %d failures",
+			hardRemoveTorrents-removedCandidates, len(hardlinkedCandidates), len(fileOverlapCandidates), removedCandidates, errorRemoveTorrents)
 
 	if !noti.CanSend() {
 		log.Debug("Notifications disabled, skipping...")
