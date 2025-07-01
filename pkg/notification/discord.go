@@ -527,7 +527,7 @@ func (d *discordSender) buildRetagField(torrent config.Torrent, newTags []string
 	jsonData, _ := json.Marshal(inlineFields)
 
 	return Field{
-		Name:  escapeDiscordMarkdown(fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes)))),
+		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
 		Value: string(jsonData),
 	}
 }
@@ -550,7 +550,7 @@ func (d *discordSender) buildRelabelField(torrent config.Torrent, newLabel strin
 	jsonData, _ := json.Marshal(inlineFields)
 
 	return Field{
-		Name:  escapeDiscordMarkdown(fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes)))),
+		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
 		Value: string(jsonData),
 	}
 }
@@ -607,7 +607,7 @@ func (d *discordSender) buildGenericField(torrent config.Torrent, reason string)
 	jsonData, _ := json.Marshal(inlineFields)
 
 	return Field{
-		Name:  escapeDiscordMarkdown(fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes)))),
+		Name:  fmt.Sprintf("%s (%s)", torrent.Name, humanize.IBytes(uint64(torrent.TotalBytes))),
 		Value: string(jsonData),
 	}
 }
