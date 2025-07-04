@@ -125,7 +125,7 @@ func TestProcessInBatches(t *testing.T) {
 		var counter atomic.Int64
 		items := make(map[string]int64)
 		numItems := 100
-		for i := 0; i < numItems; i++ {
+		for i := range numItems {
 			items[fmt.Sprintf("item-%d", i)] = int64(i)
 		}
 

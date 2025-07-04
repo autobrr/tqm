@@ -141,15 +141,15 @@ func (c *QBittorrent) LabelPathMap() map[string]string {
 func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torrent, error) {
 	// retrieve torrents from client
 	c.log.Tracef("Retrieving torrents...")
-	t, err := c.client.GetTorrentsCtx(ctx, qbit.TorrentFilterOptions{IncludeTrackers: true})
+	ts, err := c.client.GetTorrentsCtx(ctx, qbit.TorrentFilterOptions{IncludeTrackers: true})
 	if err != nil {
 		return nil, fmt.Errorf("get torrents: %w", err)
 	}
-	c.log.Tracef("Retrieved %d torrents", len(t))
+	c.log.Tracef("Retrieved %d torrents", len(ts))
 
 	// build torrent list
 	torrents := make(map[string]config.Torrent)
-	for _, t := range t {
+	for _, t := range ts {
 		// get additional torrent details
 		//td, err := c.client.Torrent.GetProperties(t.Hash)
 		td, err := c.client.GetTorrentPropertiesCtx(ctx, t.Hash)

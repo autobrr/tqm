@@ -47,9 +47,9 @@ func (c *OPS) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	//c.log.Infof("Checking OPS torrent: %s", torrent.Name)
 
 	type Response struct {
-		Status   string      `json:"status"`
-		Error    string      `json:"error"`
-		Response interface{} `json:"response"`
+		Status   string `json:"status"`
+		Error    string `json:"error"`
+		Response any    `json:"response"`
 		Info     struct {
 			Source  string `json:"source"`
 			Version int    `json:"version"`
