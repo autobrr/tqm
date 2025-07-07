@@ -443,7 +443,10 @@ func (c *QBittorrent) PauseTorrents(ctx context.Context, hashes []string) error 
 }
 
 func (c *QBittorrent) ShouldRetag(ctx context.Context, t *config.Torrent) (RetagInfo, error) {
-	var retagInfo = RetagInfo{}
+	retagInfo := RetagInfo{
+		Add:    make(map[string]struct{}),
+		Remove: make(map[string]struct{}),
+	}
 	var uploadLimitSet = false
 
 	for _, tagRule := range c.exp.Tags {
@@ -457,10 +460,10 @@ func (c *QBittorrent) ShouldRetag(ctx context.Context, t *config.Torrent) (Retag
 		var tagMode = tagRule.Mode
 
 		if containTag && !match && (tagMode == "remove" || tagMode == "full") {
-			retagInfo.Remove = append(retagInfo.Remove, tagRule.Name)
+			retagInfo.Remove[tagRule.Name] = struct{}{}
 		}
 		if !containTag && match && (tagMode == "add" || tagMode == "full") {
-			retagInfo.Add = append(retagInfo.Add, tagRule.Name)
+			retagInfo.Add[tagRule.Name] = struct{}{}
 		}
 
 		if match && tagRule.UploadKb != nil && !uploadLimitSet {

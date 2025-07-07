@@ -58,16 +58,26 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 			continue
 		}
 
+		// Convert maps to slices for processing
+		var addTags []string
+		for tag := range retagInfo.Add {
+			addTags = append(addTags, tag)
+		}
+
+		var removeTags []string
+		for tag := range retagInfo.Remove {
+			removeTags = append(removeTags, tag)
+		}
+
 		// initialize with torrent values
-		finalTags := t.Tags
+		finalTags := removeSlice(t.Tags, removeTags)
+		finalTags = append(finalTags, addTags...)
 		limitKb := t.UpLimit
 
 		// retag
 		log.Info("-----")
 		actionLogs := []string{}
-		if len(retagInfo.Add) > 0 || len(retagInfo.Remove) > 0 {
-			currentTags := removeSlice(t.Tags, retagInfo.Remove)
-			finalTags = append(currentTags, retagInfo.Add...)
+		if len(addTags) > 0 || len(removeTags) > 0 {
 			actionLogs = append(actionLogs, fmt.Sprintf("Retagging to: [%s]", strings.Join(finalTags, ", ")))
 		}
 		if retagInfo.UploadKb != nil {
@@ -88,21 +98,21 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 
 		if !flagDryRun {
 			// apply tag changes
-			if len(retagInfo.Add) > 0 {
-				if err := c.AddTags(ctx, t.Hash, retagInfo.Add); err != nil {
-					log.WithError(err).Errorf("Failed adding tags %v to torrent: %+v", retagInfo.Add, t)
+			if len(addTags) > 0 {
+				if err := c.AddTags(ctx, t.Hash, addTags); err != nil {
+					log.WithError(err).Errorf("Failed adding tags %v to torrent: %+v", addTags, t)
 					actionFailed = true
 				} else {
-					log.Debugf("Added tags: %v", retagInfo.Add)
+					log.Debugf("Added tags: %v", addTags)
 					actionTaken = true
 				}
 			}
-			if len(retagInfo.Remove) > 0 && !actionFailed {
-				if err := c.RemoveTags(ctx, t.Hash, retagInfo.Remove); err != nil {
-					log.WithError(err).Errorf("Failed removing tags %v from torrent: %+v", retagInfo.Remove, t)
+			if len(removeTags) > 0 && !actionFailed {
+				if err := c.RemoveTags(ctx, t.Hash, removeTags); err != nil {
+					log.WithError(err).Errorf("Failed removing tags %v from torrent: %+v", removeTags, t)
 					actionFailed = true
 				} else {
-					log.Debugf("Removed tags: %v", retagInfo.Remove)
+					log.Debugf("Removed tags: %v", removeTags)
 					actionTaken = true
 				}
 			}
