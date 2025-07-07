@@ -339,7 +339,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 			}
 
 			// Do remove
-			removed, err := c.RemoveTorrent(ctx, t.Hash, localDeleteData)
+			removed, err := c.RemoveTorrent(ctx, t, localDeleteData)
 			if err != nil {
 				log.WithError(err).Errorf("Failed removing torrent: %+v", t)
 				// don't remove from torrents file map, but prevent further operations on this torrent

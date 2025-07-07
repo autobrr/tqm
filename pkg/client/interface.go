@@ -10,7 +10,7 @@ type Interface interface {
 	Type() string
 	Connect(ctx context.Context) error
 	GetTorrents(ctx context.Context) (map[string]config.Torrent, error)
-	RemoveTorrent(ctx context.Context, hash string, deleteData bool) (bool, error)
+	RemoveTorrent(ctx context.Context, torrent *config.Torrent, deleteData bool) (bool, error)
 	SetTorrentLabel(ctx context.Context, hash string, label string, hardlink bool) error
 	GetCurrentFreeSpace(ctx context.Context, path string) (int64, error)
 	AddFreeSpace(int64)

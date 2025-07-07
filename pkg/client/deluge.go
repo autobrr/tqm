@@ -203,35 +203,35 @@ func (c *Deluge) GetTorrents(ctx context.Context) (map[string]config.Torrent, er
 	return torrents, nil
 }
 
-func (c *Deluge) RemoveTorrent(ctx context.Context, hash string, deleteData bool) (bool, error) {
+func (c *Deluge) RemoveTorrent(ctx context.Context, torrent *config.Torrent, deleteData bool) (bool, error) {
 	// pause torrent
-	if err := c.client.PauseTorrents(ctx, hash); err != nil {
-		return false, fmt.Errorf("pause torrent: %v: %w", hash, err)
+	if err := c.client.PauseTorrents(ctx, torrent.Hash); err != nil {
+		return false, fmt.Errorf("pause torrent: %v: %w", torrent.Hash, err)
 	}
 
 	time.Sleep(1 * time.Second)
 
 	// resume torrent
-	if err := c.client.ResumeTorrents(ctx, hash); err != nil {
-		return false, fmt.Errorf("resume torrent: %v: %w", hash, err)
+	if err := c.client.ResumeTorrents(ctx, torrent.Hash); err != nil {
+		return false, fmt.Errorf("resume torrent: %v: %w", torrent.Hash, err)
 	}
 
 	// sleep before re-announcing torrent
 	time.Sleep(2 * time.Second)
 
 	// re-announce torrent
-	if err := c.client.ForceReannounce(ctx, []string{hash}); err != nil {
-		return false, fmt.Errorf("re-announce torrent: %v: %w", hash, err)
+	if err := c.client.ForceReannounce(ctx, []string{torrent.Hash}); err != nil {
+		return false, fmt.Errorf("re-announce torrent: %v: %w", torrent.Hash, err)
 	}
 
 	// sleep before removing torrent
 	time.Sleep(2 * time.Second)
 
 	// remove
-	if ok, err := c.client.RemoveTorrent(ctx, hash, deleteData); err != nil {
-		return false, fmt.Errorf("remove torrent: %v: %w", hash, err)
+	if ok, err := c.client.RemoveTorrent(ctx, torrent.Hash, deleteData); err != nil {
+		return false, fmt.Errorf("remove torrent: %v: %w", torrent.Hash, err)
 	} else if !ok {
-		return false, fmt.Errorf("remove torrent: %v", hash)
+		return false, fmt.Errorf("remove torrent: %v", torrent.Hash)
 	}
 
 	return true, nil
