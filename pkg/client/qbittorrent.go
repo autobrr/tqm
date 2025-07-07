@@ -258,32 +258,24 @@ func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torren
 	return torrents, nil
 }
 
-func (c *QBittorrent) RemoveTorrent(ctx context.Context, hash string, deleteData bool) (bool, error) {
+func (c *QBittorrent) RemoveTorrent(ctx context.Context, torrent *config.Torrent, deleteData bool) (bool, error) {
+	// check if the tracker is down before removing
+	if torrent.IsTrackerDown() {
+		c.log.Debugf("Skipping removal for %s (%s) as tracker %s is down", torrent.Name, torrent.Hash, torrent.TrackerName)
+		return false, nil
+	}
+
 	// pause torrent
-	if err := c.client.PauseCtx(ctx, []string{hash}); err != nil {
-		return false, fmt.Errorf("pause torrent: %v: %w", hash, err)
-	}
-
-	time.Sleep(1 * time.Second)
-
-	// resume torrent
-	if err := c.client.ResumeCtx(ctx, []string{hash}); err != nil {
-		return false, fmt.Errorf("resume torrent: %v: %w", hash, err)
-	}
-
-	// sleep before re-announcing torrent
-	time.Sleep(2 * time.Second)
-
-	if err := c.client.ReAnnounceTorrentsCtx(ctx, []string{hash}); err != nil {
-		return false, fmt.Errorf("re-announce torrent: %v: %w", hash, err)
+	if err := c.client.PauseCtx(ctx, []string{torrent.Hash}); err != nil {
+		return false, fmt.Errorf("pause torrent: %v: %w", torrent.Hash, err)
 	}
 
 	// sleep before removing torrent
 	time.Sleep(2 * time.Second)
 
 	// remove
-	if err := c.client.DeleteTorrentsCtx(ctx, []string{hash}, deleteData); err != nil {
-		return false, fmt.Errorf("delete torrent: %v: %w", hash, err)
+	if err := c.client.DeleteTorrentsCtx(ctx, []string{torrent.Hash}, deleteData); err != nil {
+		return false, fmt.Errorf("delete torrent: %v: %w", torrent.Hash, err)
 	}
 
 	return true, nil
@@ -451,7 +443,10 @@ func (c *QBittorrent) PauseTorrents(ctx context.Context, hashes []string) error 
 }
 
 func (c *QBittorrent) ShouldRetag(ctx context.Context, t *config.Torrent) (RetagInfo, error) {
-	var retagInfo = RetagInfo{}
+	retagInfo := RetagInfo{
+		Add:    make(map[string]struct{}),
+		Remove: make(map[string]struct{}),
+	}
 	var uploadLimitSet = false
 
 	for _, tagRule := range c.exp.Tags {
@@ -465,10 +460,10 @@ func (c *QBittorrent) ShouldRetag(ctx context.Context, t *config.Torrent) (Retag
 		var tagMode = tagRule.Mode
 
 		if containTag && !match && (tagMode == "remove" || tagMode == "full") {
-			retagInfo.Remove = append(retagInfo.Remove, tagRule.Name)
+			retagInfo.Remove[tagRule.Name] = struct{}{}
 		}
 		if !containTag && match && (tagMode == "add" || tagMode == "full") {
-			retagInfo.Add = append(retagInfo.Add, tagRule.Name)
+			retagInfo.Add[tagRule.Name] = struct{}{}
 		}
 
 		if match && tagRule.UploadKb != nil && !uploadLimitSet {
