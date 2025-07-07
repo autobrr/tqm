@@ -7,8 +7,8 @@ import (
 )
 
 type RetagInfo struct {
-	Add      []string
-	Remove   []string
+	Add      map[string]struct{}
+	Remove   map[string]struct{}
 	UploadKb *int64
 }
 
