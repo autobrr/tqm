@@ -58,6 +58,8 @@ func (c *RED) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		} `json:"response"`
 	}
 
+	c.log.Tracef("Querying RED API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
+
 	// prepare request
 	url := fmt.Sprintf("https://redacted.sh/ajax.php?action=torrent&hash=%s", strings.ToUpper(torrent.Hash))
 
