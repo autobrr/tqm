@@ -223,8 +223,6 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 			Comment:         t.Comment,
 		}
 
-		trackerName := tr.Name()
-		log.Debugf("Checking torrent registration status via %s API for: %s (hash: %s)", trackerName, t.Name, t.Hash)
 		if err, ur := tr.IsUnregistered(ctx, tt); err == nil {
 			return ur
 		}
