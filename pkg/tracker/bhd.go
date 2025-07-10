@@ -121,17 +121,7 @@ func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		return fmt.Errorf("bhd: invalid API response"), false
 	}
 
-	// Final determination
-	isUnregistered := b.TotalResults < 1
-	if isUnregistered {
-		c.log.Infof("BHD API confirms torrent is UNREGISTERED: %s (hash: %s)",
-			torrent.Name, torrent.Hash)
-	} else {
-		c.log.Debugf("BHD API confirms torrent is registered: %s (hash: %s)",
-			torrent.Name, torrent.Hash)
-	}
-
-	return nil, isUnregistered
+	return nil, b.TotalResults < 1
 }
 
 func (c *BHD) IsTrackerDown(_ *Torrent) (error, bool) {
