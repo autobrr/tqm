@@ -69,7 +69,11 @@ func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	}
 
 	// Log API request details
-	c.log.Debugf("BHD API request for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
+	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		c.log.Info("-----")
+		torrent.APIDividerPrinted = true
+	}
+	c.log.Tracef("Querying BHD API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
 	// Helper function to sanitize errors that might contain the API key
 	sanitizeError := func(err error) error {

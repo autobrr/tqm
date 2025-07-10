@@ -144,6 +144,7 @@ type Torrent struct {
 
 	// set by command
 	HardlinkedOutsideClient bool `json:"-"`
+	APIDividerPrinted       bool `json:"-"`
 
 	regexPattern *regex.Pattern
 }
@@ -231,16 +232,17 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 	// check tracker api (if available)
 	if tr := tracker.Get(t.TrackerName); tr != nil {
 		tt := &tracker.Torrent{
-			Hash:            t.Hash,
-			Name:            t.Name,
-			TotalBytes:      t.TotalBytes,
-			DownloadedBytes: t.DownloadedBytes,
-			State:           t.State,
-			Downloaded:      t.Downloaded,
-			Seeding:         t.Seeding,
-			TrackerName:     t.TrackerName,
-			TrackerStatus:   t.TrackerStatus,
-			Comment:         t.Comment,
+			Hash:              t.Hash,
+			Name:              t.Name,
+			TotalBytes:        t.TotalBytes,
+			DownloadedBytes:   t.DownloadedBytes,
+			State:             t.State,
+			Downloaded:        t.Downloaded,
+			Seeding:           t.Seeding,
+			TrackerName:       t.TrackerName,
+			TrackerStatus:     t.TrackerStatus,
+			Comment:           t.Comment,
+			APIDividerPrinted: t.APIDividerPrinted,
 		}
 
 		trackerName := tr.Name()
@@ -253,6 +255,8 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 				log.Debugf("%s (hash: %s) not reported as unregistered by %s API", t.Name, t.Hash, trackerName)
 				t.RegistrationState = RegisteredState
 			}
+
+			t.APIDividerPrinted = tt.APIDividerPrinted
 			return ur
 		}
 	}
