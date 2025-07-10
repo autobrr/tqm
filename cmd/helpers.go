@@ -75,7 +75,10 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 		limitKb := t.UpLimit
 
 		// retag
-		log.Info("-----")
+		if !t.APIDividerPrinted {
+			log.Info("-----")
+		}
+
 		actionLogs := []string{}
 		if len(addTags) > 0 || len(removeTags) > 0 {
 			actionLogs = append(actionLogs, fmt.Sprintf("Retagging to: [%s]", strings.Join(finalTags, ", ")))
@@ -223,7 +226,10 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 		}
 
 		// relabel
-		log.Info("-----")
+		if !t.APIDividerPrinted {
+			log.Info("-----")
+		}
+
 		if hardlink {
 			log.Infof("Relabeling: %q - %s | with hardlinks to: %q", t.Name, label, c.LabelPathMap()[label])
 		} else {
@@ -300,7 +306,10 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		// Check if torrent is unregistered (can bypass uniqueness checks)
 		if t.IsUnregistered(ctx) {
 			// For unregistered torrents, override safety checks
-			log.Info("-----")
+			if !t.APIDividerPrinted {
+				log.Info("-----")
+			}
+
 			if isHardlinked {
 				log.Infof("removing unregistered non-unique torrent (hardlinked): %q - %s", t.Name, humanize.IBytes(uint64(t.DownloadedBytes)))
 			} else {
@@ -384,7 +393,10 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	// helper function to remove torrent
 	removeTorrent := func(ctx context.Context, h string, t *config.Torrent, reason string) {
 		// remove the torrent
-		log.Info("-----")
+		if !t.APIDividerPrinted {
+			log.Info("-----")
+		}
+
 		if !t.FreeSpaceSet {
 			log.Infof("removing: %q - %s", t.Name, humanize.IBytes(uint64(t.DownloadedBytes)))
 		} else {

@@ -75,6 +75,11 @@ func (c *UNIT3D) IsUnregistered(ctx context.Context, torrent *Torrent) (error, b
 		return nil, false
 	}
 
+	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		c.log.Info("-----")
+		torrent.APIDividerPrinted = true
+	}
+
 	if torrent.Comment == "" {
 		c.log.Debugf("Skipping torrent check - no comment available (likely Deluge client): %s", torrent.Name)
 		return nil, false

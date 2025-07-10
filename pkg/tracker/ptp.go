@@ -56,6 +56,11 @@ func (c *PTP) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		ResultDetails string `json:"ResultDetails"`
 	}
 
+	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		c.log.Info("-----")
+		torrent.APIDividerPrinted = true
+	}
+
 	c.log.Tracef("Querying PTP API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
 	// prepare request

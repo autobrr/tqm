@@ -65,6 +65,11 @@ func (c *HDB) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		Data    []TorrentResult `json:"data"`
 	}
 
+	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		c.log.Info("-----")
+		torrent.APIDividerPrinted = true
+	}
+
 	c.log.Tracef("Querying HDB API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
 	// prepare request body
