@@ -5,16 +5,16 @@ go 1.24
 toolchain go1.24.2
 
 require (
-	github.com/autobrr/autobrr v1.62.0
+	github.com/autobrr/autobrr v1.63.1
 	github.com/autobrr/go-deluge v1.3.0
-	github.com/autobrr/go-qbittorrent v1.13.0
+	github.com/autobrr/go-qbittorrent v1.14.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/bobesa/go-domain-util v0.0.0-20190911083921-4033b5f7dd89
-	github.com/charlievieth/fastwalk v1.0.10
+	github.com/charlievieth/fastwalk v1.0.12
 	github.com/dlclark/regexp2 v1.11.5
 	github.com/dustin/go-humanize v1.0.1
-	github.com/expr-lang/expr v1.17.2
-	github.com/hashicorp/go-retryablehttp v0.7.7
+	github.com/expr-lang/expr v1.17.5
+	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/knadh/koanf v1.5.0
 	github.com/lucperkins/rek v0.1.3
 	github.com/natefinch/lumberjack v2.0.0+incompatible
@@ -33,7 +33,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
+	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 )
 
 require (
@@ -60,11 +60,11 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/tcnksm/go-gitconfig v0.1.2 // indirect
 	github.com/ulikunitz/xz v0.5.12 // indirect
-	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/net v0.39.0 // indirect
-	golang.org/x/oauth2 v0.29.0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
-	golang.org/x/term v0.31.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
+	golang.org/x/crypto v0.38.0 // indirect
+	golang.org/x/net v0.40.0 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/term v0.32.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
