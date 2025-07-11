@@ -103,6 +103,12 @@ var (
 		"offline",
 		"your request could not be processed, please try again later",
 	}
+
+	// set of statuses that indicate that the torrent is not yet fully uploaded, but not unregistered either
+	trackerIntermediateStatuses = []string{
+		// BHD - torrent is under moderation
+		"torrent has been postponed",
+	}
 )
 
 type Torrent struct {
@@ -164,6 +170,21 @@ func (t *Torrent) IsTrackerDown() bool {
 	return false
 }
 
+func (t *Torrent) IsIntermediateStatus() bool {
+	if t.TrackerStatus == "" {
+		return false
+	}
+
+	status := strings.ToLower(t.TrackerStatus)
+	for _, v := range trackerIntermediateStatuses {
+		if strings.Contains(status, v) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // InitializeTrackerStatuses prepares the default status map and processes per-tracker overrides.
 // It should be called once after configuration is loaded.
 func InitializeTrackerStatuses(perTrackerOverrides map[string][]string) {
@@ -205,6 +226,10 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 
 	if t.TrackerStatus == "" {
 		t.RegistrationState = RegisteredState
+		return false
+	}
+
+	if t.IsIntermediateStatus() {
 		return false
 	}
 
