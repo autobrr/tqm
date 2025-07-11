@@ -75,12 +75,17 @@ func (c *UNIT3D) IsUnregistered(ctx context.Context, torrent *Torrent) (error, b
 		return nil, false
 	}
 
+	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		c.log.Info("-----")
+		torrent.APIDividerPrinted = true
+	}
+
 	if torrent.Comment == "" {
 		c.log.Debugf("Skipping torrent check - no comment available (likely Deluge client): %s", torrent.Name)
 		return nil, false
 	}
 
-	c.log.Infof("Checking torrent from %s: %s", torrent.TrackerName, torrent.Name)
+	c.log.Tracef("Querying UNIT3D API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
 	// extract torrent ID from comment
 	torrentID, err := c.extractTorrentID(torrent.Comment)

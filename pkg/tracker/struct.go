@@ -24,4 +24,7 @@ type Torrent struct {
 	TrackerName   string
 	TrackerStatus string
 	Comment       string
+
+	// internal
+	APIDividerPrinted bool
 }

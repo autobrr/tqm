@@ -66,6 +66,12 @@ func (c *BTN) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		return nil, false
 	}
 
+	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+		c.log.Info("-----")
+		torrent.APIDividerPrinted = true
+	}
+	c.log.Tracef("Querying BTN API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
+
 	torrentID, err := c.extractTorrentID(torrent.Comment)
 	if err != nil {
 		return nil, false
