@@ -12,6 +12,14 @@ import (
 	"github.com/autobrr/tqm/pkg/tracker"
 )
 
+type TorrentRegistrationState uint8
+
+const (
+	NoRegistrationState TorrentRegistrationState = iota
+	UnregisteredState
+	RegisteredState
+)
+
 var (
 	// defaultUnregisteredStatuses holds the default list if none is provided in config.
 	defaultUnregisteredStatuses = []string{
@@ -95,6 +103,12 @@ var (
 		"offline",
 		"your request could not be processed, please try again later",
 	}
+
+	// set of statuses that indicate that the torrent is not yet fully uploaded, but not unregistered either
+	trackerIntermediateStatuses = []string{
+		// BHD - torrent is under moderation
+		"torrent has been postponed",
+	}
 )
 
 type Torrent struct {
@@ -132,6 +146,8 @@ type Torrent struct {
 	TrackerStatus string `json:"TrackerStatus"`
 	Comment       string `json:"Comment"`
 
+	RegistrationState TorrentRegistrationState `json:"-"`
+
 	// set by command
 	HardlinkedOutsideClient bool `json:"-"`
 	APIDividerPrinted       bool `json:"-"`
@@ -146,6 +162,21 @@ func (t *Torrent) IsTrackerDown() bool {
 
 	status := strings.ToLower(t.TrackerStatus)
 	for _, v := range trackerDownStatuses {
+		if strings.Contains(status, v) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (t *Torrent) IsIntermediateStatus() bool {
+	if t.TrackerStatus == "" {
+		return false
+	}
+
+	status := strings.ToLower(t.TrackerStatus)
+	for _, v := range trackerIntermediateStatuses {
 		if strings.Contains(status, v) {
 			return true
 		}
@@ -185,11 +216,25 @@ func InitializeTrackerStatuses(perTrackerOverrides map[string][]string) {
 }
 
 func (t *Torrent) IsUnregistered(ctx context.Context) bool {
+	switch t.RegistrationState {
+	case NoRegistrationState:
+	case UnregisteredState:
+		return true
+	case RegisteredState:
+		return false
+	}
+
 	if t.TrackerStatus == "" {
+		t.RegistrationState = RegisteredState
+		return false
+	}
+
+	if t.IsIntermediateStatus() {
 		return false
 	}
 
 	if t.IsTrackerDown() {
+		t.RegistrationState = RegisteredState
 		return false
 	}
 
@@ -225,12 +270,23 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 			APIDividerPrinted: t.APIDividerPrinted,
 		}
 
+		trackerName := tr.Name()
 		if err, ur := tr.IsUnregistered(ctx, tt); err == nil {
+			switch ur {
+			case true:
+				log.Debugf("%s (hash: %s) confirmed as unregistered by %s API", t.Name, t.Hash, trackerName)
+				t.RegistrationState = UnregisteredState
+			default:
+				log.Debugf("%s (hash: %s) not reported as unregistered by %s API", t.Name, t.Hash, trackerName)
+				t.RegistrationState = RegisteredState
+			}
+
 			t.APIDividerPrinted = tt.APIDividerPrinted
 			return ur
 		}
 	}
 
+	t.RegistrationState = RegisteredState
 	return false
 }
 
