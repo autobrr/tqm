@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/autobrr/go-qbittorrent"
 	"github.com/dustin/go-humanize"
 	"github.com/sirupsen/logrus"
 
@@ -79,7 +81,7 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 			log.Info("-----")
 		}
 
-		actionLogs := []string{}
+		var actionLogs []string
 		if len(addTags) > 0 || len(removeTags) > 0 {
 			actionLogs = append(actionLogs, fmt.Sprintf("Retagging to: [%s]", strings.Join(finalTags, ", ")))
 		}
@@ -101,23 +103,33 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 
 		if !flagDryRun {
 			// apply tag changes
-			if len(addTags) > 0 {
-				if err := c.AddTags(ctx, t.Hash, addTags); err != nil {
-					log.WithError(err).Errorf("Failed adding tags %v to torrent: %+v", addTags, t)
-					actionFailed = true
-				} else {
-					log.Debugf("Added tags: %v", addTags)
-					actionTaken = true
+			if err := c.SetTags(ctx, t.Hash, finalTags); err == nil {
+				log.Debugf("Set tags: %v", finalTags)
+				actionTaken = true
+			} else if errors.Is(qbittorrent.ErrUnsupportedVersion, err) {
+				log.Debug("Unsupported qBittorrent version, using AddTags and RemoveTags instead")
+
+				if len(addTags) > 0 {
+					if err := c.AddTags(ctx, t.Hash, addTags); err != nil {
+						log.WithError(err).Errorf("Failed adding tags %v to torrent: %+v", addTags, t)
+						actionFailed = true
+					} else {
+						log.Debugf("Added tags: %v", addTags)
+						actionTaken = true
+					}
 				}
-			}
-			if len(removeTags) > 0 && !actionFailed {
-				if err := c.RemoveTags(ctx, t.Hash, removeTags); err != nil {
-					log.WithError(err).Errorf("Failed removing tags %v from torrent: %+v", removeTags, t)
-					actionFailed = true
-				} else {
-					log.Debugf("Removed tags: %v", removeTags)
-					actionTaken = true
+				if len(removeTags) > 0 && !actionFailed {
+					if err := c.RemoveTags(ctx, t.Hash, removeTags); err != nil {
+						log.WithError(err).Errorf("Failed removing tags %v from torrent: %+v", removeTags, t)
+						actionFailed = true
+					} else {
+						log.Debugf("Removed tags: %v", removeTags)
+						actionTaken = true
+					}
 				}
+			} else {
+				log.WithError(err).Errorf("Failed setting tags %v for torrent: %+v", finalTags, t)
+				actionFailed = true
 			}
 
 			// apply speed limit change
@@ -145,7 +157,8 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 			log.Warn("Dry-run enabled, skipping actions...")
 		}
 
-		if actionTaken || flagDryRun && shouldTakeAction {
+		// don't check for shouldTakeAction again as it can't be false
+		if actionTaken || flagDryRun {
 			fields = append(fields, noti.BuildField(notification.ActionRetag, notification.BuildOptions{
 				Torrent:    t,
 				NewTags:    finalTags,

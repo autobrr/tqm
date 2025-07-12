@@ -498,7 +498,15 @@ func (c *QBittorrent) RemoveTags(ctx context.Context, hash string, tags []string
 	}
 
 	if err := c.client.RemoveTagsCtx(ctx, []string{hash}, strings.Join(tags, ",")); err != nil {
-		return fmt.Errorf("add torrent tags: %v: %w", tags, err)
+		return fmt.Errorf("remove torrent tags: %v: %w", tags, err)
+	}
+
+	return nil
+}
+
+func (c *QBittorrent) SetTags(ctx context.Context, hash string, tags []string) error {
+	if err := c.client.SetTags(ctx, []string{hash}, strings.Join(tags, ",")); err != nil {
+		return fmt.Errorf("set torrent tags: %v: %w", tags, err)
 	}
 
 	return nil
