@@ -18,6 +18,7 @@ type TagInterface interface {
 	ShouldRetag(ctx context.Context, t *config.Torrent) (RetagInfo, error)
 	AddTags(ctx context.Context, hash string, tags []string) error
 	RemoveTags(ctx context.Context, hash string, tags []string) error
+	SetTags(ctx context.Context, hash string, tags []string) error
 	CreateTags(ctx context.Context, tags []string) error
 	DeleteTags(ctx context.Context, tags []string) error
 }
