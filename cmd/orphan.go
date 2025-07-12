@@ -115,7 +115,6 @@ var orphanCmd = &cobra.Command{
 		localFolderPaths := make(map[string]int64)
 
 		for _, p := range localDownloadPaths {
-			p := p
 			if p.IsDir {
 				if strings.EqualFold(p.RealPath, *clientDownloadPath) {
 					// ignore root download path

@@ -134,11 +134,11 @@ func (c *Deluge) LabelPathMap() map[string]string {
 func (c *Deluge) GetTorrents(ctx context.Context) (map[string]config.Torrent, error) {
 	// retrieve torrents from client
 	c.log.Tracef("Retrieving torrents...")
-	t, err := c.client.TorrentsStatus(ctx, delugeclient.StateUnspecified, nil)
+	ts, err := c.client.TorrentsStatus(ctx, delugeclient.StateUnspecified, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get torrents: %w", err)
 	}
-	c.log.Tracef("Retrieved %d torrents", len(t))
+	c.log.Tracef("Retrieved %d torrents", len(ts))
 
 	// retrieve torrent labels
 	labels, err := c.client.GetTorrentsLabels(delugeclient.StateUnspecified, nil)
@@ -149,10 +149,7 @@ func (c *Deluge) GetTorrents(ctx context.Context) (map[string]config.Torrent, er
 
 	// build torrent list
 	torrents := make(map[string]config.Torrent)
-	for h, t := range t {
-		h := h
-		t := t
-
+	for h, t := range ts {
 		// build files slice
 		var files []string
 		for _, f := range t.Files {

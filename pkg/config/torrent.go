@@ -362,10 +362,8 @@ func (t *Torrent) RegexMatch(pattern string) bool {
 // RegexMatchAny checks if the torrent name matches any of the provided patterns
 func (t *Torrent) RegexMatchAny(patternsStr string) bool {
 	// Split the comma-separated string into patterns
-	patterns := strings.Split(patternsStr, ",")
-
 	var compiledPatterns []*regex.Pattern
-	for _, p := range patterns {
+	for p := range strings.SplitSeq(patternsStr, ",") {
 		// Trim any whitespace
 		p = strings.TrimSpace(p)
 		compiled, err := regex.Compile(p)
@@ -382,13 +380,11 @@ func (t *Torrent) RegexMatchAny(patternsStr string) bool {
 	return match
 }
 
-// RegexMatchAll checks if the torrent name matches all of the provided patterns
+// RegexMatchAll checks if the torrent name matches all the provided patterns
 func (t *Torrent) RegexMatchAll(patternsStr string) bool {
 	// Split the comma-separated string into patterns
-	patterns := strings.Split(patternsStr, ",")
-
 	var compiledPatterns []*regex.Pattern
-	for _, p := range patterns {
+	for p := range strings.SplitSeq(patternsStr, ",") {
 		// Trim any whitespace
 		p = strings.TrimSpace(p)
 		compiled, err := regex.Compile(p)

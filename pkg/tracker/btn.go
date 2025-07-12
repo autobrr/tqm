@@ -78,10 +78,10 @@ func (c *BTN) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	}
 
 	type JSONRPCRequest struct {
-		JsonRPC string        `json:"jsonrpc"`
-		Method  string        `json:"method"`
-		Params  []interface{} `json:"params"`
-		ID      int           `json:"id"`
+		JsonRPC string `json:"jsonrpc"`
+		Method  string `json:"method"`
+		Params  []any  `json:"params"`
+		ID      int    `json:"id"`
 	}
 
 	type TorrentInfo struct {
@@ -106,7 +106,7 @@ func (c *BTN) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	reqBody := JSONRPCRequest{
 		JsonRPC: "2.0",
 		Method:  "getTorrentsSearch",
-		Params:  []interface{}{c.cfg.Key, map[string]interface{}{"id": torrentID}, 1},
+		Params:  []any{c.cfg.Key, map[string]any{"id": torrentID}, 1},
 		ID:      1,
 	}
 
