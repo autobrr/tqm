@@ -188,24 +188,23 @@ func checkFilterUsesFreespace(filter *config.FilterConfiguration) bool {
 	}
 
 	// Check all filter conditions
-	if slices.ContainsFunc(filter.Ignore, func(s string) bool { return checkExpression(s) }) == true {
+	if slices.ContainsFunc(filter.Ignore, checkExpression) {
 		return true
 	}
-
-	if slices.ContainsFunc(filter.Remove, func(s string) bool { return checkExpression(s) }) == true {
+	if slices.ContainsFunc(filter.Remove, checkExpression) {
 		return true
 	}
 
 	// Check label expressions
 	for _, label := range filter.Label {
-		if slices.ContainsFunc(label.Update, func(s string) bool { return checkExpression(s) }) == true {
+		if slices.ContainsFunc(label.Update, checkExpression) {
 			return true
 		}
 	}
 
 	// Check tag expressions
 	for _, tag := range filter.Tag {
-		if slices.ContainsFunc(tag.Update, func(s string) bool { return checkExpression(s) }) == true {
+		if slices.ContainsFunc(tag.Update, checkExpression) {
 			return true
 		}
 	}
