@@ -8,11 +8,11 @@ import (
 
 	"github.com/autobrr/tqm/pkg/client"
 	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/evaluate"
 	"github.com/autobrr/tqm/pkg/expression"
 	"github.com/autobrr/tqm/pkg/hardlinkfilemap"
 	"github.com/autobrr/tqm/pkg/logger"
 	"github.com/autobrr/tqm/pkg/notification"
-	"github.com/autobrr/tqm/pkg/sliceutils"
 	"github.com/autobrr/tqm/pkg/tracker"
 )
 
@@ -130,7 +130,7 @@ var retagCmd = &cobra.Command{
 			log.Infof("Retrieved %d torrents", len(torrents))
 		}
 
-		if sliceutils.StringSliceContains(clientFilter.MapHardlinksFor, "retag", true) {
+		if evaluate.StringSliceContains(clientFilter.MapHardlinksFor, "retag", true) {
 			// download path mapping
 			clientDownloadPathMapping, err := getClientDownloadPathMapping(clientConfig)
 			if err != nil {
@@ -156,7 +156,7 @@ var retagCmd = &cobra.Command{
 		}
 
 		// Verify tags exist on client
-		var tagList []string = []string{}
+		var tagList []string
 		for _, v := range exp.Tags {
 			tagList = append(tagList, v.Name)
 		}

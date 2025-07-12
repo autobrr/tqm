@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	nethttp "net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 
-	"github.com/autobrr/tqm/pkg/httputils"
+	"github.com/autobrr/tqm/pkg/http"
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
@@ -22,7 +23,7 @@ type BHDConfig struct {
 
 type BHD struct {
 	cfg  BHDConfig
-	http *http.Client
+	http *nethttp.Client
 	log  *logrus.Entry
 }
 
@@ -47,7 +48,7 @@ func NewBHD(c BHDConfig) *BHD {
 	l := logger.GetLogger("bhd-api")
 	return &BHD{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
+		http: http.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		log:  l,
 	}
 }
@@ -62,7 +63,7 @@ func (c *BHD) Check(host string) bool {
 
 func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
 	// prepare request
-	url := httputils.Join("https://beyond-hd.me/api/torrents", c.cfg.Key)
+	requestURL, _ := url.JoinPath("https://beyond-hd.me/api/torrents", c.cfg.Key)
 	payload := &BHDAPIRequest{
 		Hash:   torrent.Hash,
 		Action: "search",
@@ -90,7 +91,7 @@ func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	}
 
 	// send request
-	resp, err := rek.Post(url, rek.Client(c.http), rek.Json(payload), rek.Context(ctx))
+	resp, err := rek.Post(requestURL, rek.Client(c.http), rek.Json(payload), rek.Context(ctx))
 	if err != nil {
 		safeErr := sanitizeError(err)
 		c.log.WithError(safeErr).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)

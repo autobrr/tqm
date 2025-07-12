@@ -14,9 +14,9 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/evaluate"
 	"github.com/autobrr/tqm/pkg/expression"
 	"github.com/autobrr/tqm/pkg/logger"
-	"github.com/autobrr/tqm/pkg/sliceutils"
 )
 
 /* Struct */
@@ -179,16 +179,16 @@ func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torren
 			trackers = ts
 		}
 
-		for _, tracker := range trackers {
+		for _, tr := range trackers {
 			// skip disabled trackers
-			if strings.Contains(tracker.Url, "[DHT]") || strings.Contains(tracker.Url, "[LSD]") ||
-				strings.Contains(tracker.Url, "[PeX]") {
+			if strings.Contains(tr.Url, "[DHT]") || strings.Contains(tr.Url, "[LSD]") ||
+				strings.Contains(tr.Url, "[PeX]") {
 				continue
 			}
 
-			// use status of first enabled tracker
-			trackerName = parseTrackerDomain(tracker.Url)
-			trackerStatus = tracker.Message
+			// use status of the first enabled tracker
+			trackerName = config.ParseTrackerDomain(tr.Url)
+			trackerStatus = tr.Message
 			break
 		}
 
@@ -219,14 +219,14 @@ func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torren
 			State:           string(t.State),
 			Files:           files,
 			Tags:            tags,
-			Downloaded: !sliceutils.StringSliceContains([]string{
+			Downloaded: !evaluate.StringSliceContains([]string{
 				"downloading",
 				"stalledDL",
 				"queuedDL",
 				"pausedDL",
 				"checkingDL",
 			}, string(t.State), true),
-			Seeding: sliceutils.StringSliceContains([]string{
+			Seeding: evaluate.StringSliceContains([]string{
 				"uploading",
 				"stalledUP",
 			}, string(t.State), true),
@@ -369,7 +369,7 @@ func (c *QBittorrent) GetCurrentFreeSpace(ctx context.Context, path string) (int
 	c.freeSpaceGB = float64(data.ServerState.FreeSpaceOnDisk) / humanize.GiByte
 	c.freeSpaceSet = true
 
-	return int64(data.ServerState.FreeSpaceOnDisk), nil
+	return data.ServerState.FreeSpaceOnDisk, nil
 }
 
 func (c *QBittorrent) AddFreeSpace(bytes int64) {
@@ -456,7 +456,7 @@ func (c *QBittorrent) ShouldRetag(ctx context.Context, t *config.Torrent) (Retag
 			return RetagInfo{}, fmt.Errorf("check update expression for tag %s on torrent %v: %w", tagRule.Name, t.Hash, err)
 		}
 
-		var containTag = sliceutils.StringSliceContains(t.Tags, tagRule.Name, false)
+		var containTag = evaluate.StringSliceContains(t.Tags, tagRule.Name, false)
 		var tagMode = tagRule.Mode
 
 		if containTag && !match && (tagMode == "remove" || tagMode == "full") {

@@ -1,7 +1,9 @@
-package httputils
+package http
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -29,4 +31,14 @@ func NewRetryableHttpClient(timeout time.Duration, rl ratelimit.Limiter) *http.C
 	retryClient.HTTPClient.Timeout = timeout
 	retryClient.Logger = nil
 	return retryClient.StandardClient()
+}
+
+func URLWithQuery(base string, q url.Values) (string, error) {
+	u, err := url.Parse(base)
+	if err != nil {
+		return "", fmt.Errorf("url parse: %w", err)
+	}
+
+	u.RawQuery = q.Encode()
+	return u.String(), nil
 }

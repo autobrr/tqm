@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	nethttp "net/http"
 	"strings"
 	"time"
 
@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 
-	"github.com/autobrr/tqm/pkg/httputils"
+	"github.com/autobrr/tqm/pkg/http"
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
@@ -22,7 +22,7 @@ type OPSConfig struct {
 
 type OPS struct {
 	cfg  OPSConfig
-	http *http.Client
+	http *nethttp.Client
 	log  *logrus.Entry
 }
 
@@ -30,7 +30,7 @@ func NewOPS(c OPSConfig) *OPS {
 	l := logger.GetLogger("ops-api")
 	return &OPS{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
+		http: http.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		log:  l,
 	}
 }

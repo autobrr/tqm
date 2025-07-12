@@ -6,6 +6,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
+
+	"github.com/autobrr/tqm/pkg/formatting"
 )
 
 var (
@@ -75,9 +77,9 @@ func Init(logLevel int, logFilePath string) error {
 func ShowUsing() {
 	log := GetLogger("log")
 
-	log.Infof("Using %s = %s", stringLeftJust("LOG_LEVEL", " ", 10),
+	log.Infof("Using %s = %s", formatting.LeftJust("LOG_LEVEL", " ", 10),
 		logrus.GetLevel().String())
-	log.Infof("Using %s = %q", stringLeftJust("LOG", " ", 10), loggingFilePath)
+	log.Infof("Using %s = %q", formatting.LeftJust("LOG", " ", 10), loggingFilePath)
 }
 
 func GetLogger(prefix string) *logrus.Entry {
@@ -85,5 +87,5 @@ func GetLogger(prefix string) *logrus.Entry {
 		prefixLen = len(prefix)
 	}
 
-	return logrus.WithFields(logrus.Fields{"prefix": stringLeftJust(prefix, " ", prefixLen)})
+	return logrus.WithFields(logrus.Fields{"prefix": formatting.LeftJust(prefix, " ", prefixLen)})
 }

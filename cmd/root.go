@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/formatting"
 	"github.com/autobrr/tqm/pkg/logger"
 	"github.com/autobrr/tqm/pkg/runtime"
-	"github.com/autobrr/tqm/pkg/stringutils"
 	"github.com/autobrr/tqm/pkg/tracker"
 )
 
@@ -94,7 +94,7 @@ func initCore(showAppInfo bool) {
 
 func showUsing() {
 	// show app info
-	log.Infof("Using %s = %s (%s@%s)", stringutils.LeftJust("VERSION", " ", 10),
+	log.Infof("Using %s = %s (%s@%s)", formatting.LeftJust("VERSION", " ", 10),
 		runtime.Version, runtime.GitCommit, runtime.Timestamp)
 	logger.ShowUsing()
 	config.ShowUsing()

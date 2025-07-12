@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	nethttp "net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 
-	"github.com/autobrr/tqm/pkg/httputils"
+	"github.com/autobrr/tqm/pkg/http"
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
@@ -25,7 +25,7 @@ type BTNConfig struct {
 
 type BTN struct {
 	cfg  BTNConfig
-	http *http.Client
+	http *nethttp.Client
 	log  *logrus.Entry
 }
 
@@ -33,7 +33,7 @@ func NewBTN(c BTNConfig) *BTN {
 	l := logger.GetLogger("btn-api")
 	return &BTN{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
+		http: http.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		log:  l,
 	}
 }
@@ -116,7 +116,7 @@ func (c *BTN) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	}
 
 	// create request
-	req, err := http.NewRequest(http.MethodPost, "https://api.broadcasthe.net", bytes.NewReader(jsonBody))
+	req, err := nethttp.NewRequest(nethttp.MethodPost, "https://api.broadcasthe.net", bytes.NewReader(jsonBody))
 	if err != nil {
 		return fmt.Errorf("btn: create request: %w", err), false
 	}
@@ -133,7 +133,7 @@ func (c *BTN) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != nethttp.StatusOK {
 		return fmt.Errorf("btn: unexpected status code: %d", resp.StatusCode), false
 	}
 

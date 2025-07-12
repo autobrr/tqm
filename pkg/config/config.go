@@ -9,8 +9,8 @@ import (
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 
+	"github.com/autobrr/tqm/pkg/formatting"
 	"github.com/autobrr/tqm/pkg/logger"
-	"github.com/autobrr/tqm/pkg/stringutils"
 	"github.com/autobrr/tqm/pkg/tracker"
 )
 
@@ -75,5 +75,5 @@ func Init(configFilePath string) error {
 }
 
 func ShowUsing() {
-	log.Infof("Using %s = %q", stringutils.LeftJust("CONFIG", " ", 10), cfgPath)
+	log.Infof("Using %s = %q", formatting.LeftJust("CONFIG", " ", 10), cfgPath)
 }

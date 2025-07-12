@@ -3,12 +3,17 @@ package config
 import (
 	"context"
 	"math"
+	"net"
+	"net/url"
 	"os"
 	"strings"
 
+	"github.com/bobesa/go-domain-util/domainutil"
+	"github.com/sirupsen/logrus"
+
+	"github.com/autobrr/tqm/pkg/evaluate"
 	"github.com/autobrr/tqm/pkg/logger"
 	"github.com/autobrr/tqm/pkg/regex"
-	"github.com/autobrr/tqm/pkg/sliceutils"
 	"github.com/autobrr/tqm/pkg/tracker"
 )
 
@@ -292,7 +297,7 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 
 func (t *Torrent) HasAllTags(tags ...string) bool {
 	for _, v := range tags {
-		if !sliceutils.StringSliceContains(t.Tags, v, true) {
+		if !evaluate.StringSliceContains(t.Tags, v, true) {
 			return false
 		}
 	}
@@ -302,7 +307,7 @@ func (t *Torrent) HasAllTags(tags ...string) bool {
 
 func (t *Torrent) HasAnyTag(tags ...string) bool {
 	for _, v := range tags {
-		if sliceutils.StringSliceContains(t.Tags, v, true) {
+		if evaluate.StringSliceContains(t.Tags, v, true) {
 			return true
 		}
 	}
@@ -399,4 +404,34 @@ func (t *Torrent) RegexMatchAll(patternsStr string) bool {
 		return false
 	}
 	return match
+}
+
+func ParseTrackerDomain(trackerHost string) string {
+	// return empty host
+	if trackerHost == "" {
+		return trackerHost
+	}
+
+	// parse url components
+	u, err := url.Parse(trackerHost)
+	if err != nil {
+		logrus.WithError(err).Warnf("Failed parsing tracker host: %q", trackerHost)
+		return trackerHost
+	}
+
+	// parse host
+	host := u.Host
+	if strings.Contains(host, ":") {
+		// remove port
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+	}
+
+	// remove subdomain
+	if domain := domainutil.Domain(host); domain != "" {
+		return domain
+	}
+
+	return host
 }

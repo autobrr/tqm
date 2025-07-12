@@ -8,11 +8,11 @@ import (
 
 	"github.com/autobrr/tqm/pkg/client"
 	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/evaluate"
 	"github.com/autobrr/tqm/pkg/expression"
 	"github.com/autobrr/tqm/pkg/hardlinkfilemap"
 	"github.com/autobrr/tqm/pkg/logger"
 	"github.com/autobrr/tqm/pkg/notification"
-	"github.com/autobrr/tqm/pkg/sliceutils"
 	"github.com/autobrr/tqm/pkg/torrentfilemap"
 	"github.com/autobrr/tqm/pkg/tracker"
 )
@@ -130,7 +130,7 @@ var relabelCmd = &cobra.Command{
 		tfm := torrentfilemap.New(torrents)
 		log.Infof("Mapped torrents to %d unique torrent files", tfm.Length())
 
-		if sliceutils.StringSliceContains(clientFilter.MapHardlinksFor, "relabel", true) {
+		if evaluate.StringSliceContains(clientFilter.MapHardlinksFor, "relabel", true) {
 			// download path mapping
 			clientDownloadPathMapping, err := getClientDownloadPathMapping(clientConfig)
 			if err != nil {

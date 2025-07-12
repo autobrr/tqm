@@ -11,11 +11,11 @@ import (
 
 	"github.com/autobrr/tqm/pkg/client"
 	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/evaluate"
 	"github.com/autobrr/tqm/pkg/expression"
 	"github.com/autobrr/tqm/pkg/hardlinkfilemap"
 	"github.com/autobrr/tqm/pkg/logger"
 	"github.com/autobrr/tqm/pkg/notification"
-	"github.com/autobrr/tqm/pkg/sliceutils"
 	"github.com/autobrr/tqm/pkg/torrentfilemap"
 	"github.com/autobrr/tqm/pkg/tracker"
 )
@@ -119,9 +119,7 @@ var cleanCmd = &cobra.Command{
 						humanize.IBytes(uint64(space)), c.GetFreeSpace())
 				}
 			} else {
-				filterUsesFreespace := checkFilterUsesFreespace(clientFilter)
-
-				if filterUsesFreespace {
+				if filterUsesFreeSpace(clientFilter) {
 					log.Error("Deluge requires free_space_path to be configured in order to retrieve free space information")
 					os.Exit(1)
 				}
@@ -141,7 +139,7 @@ var cleanCmd = &cobra.Command{
 		log.Infof("Mapped torrents to %d unique torrent files", tfm.Length())
 
 		var hfm hardlinkfilemap.HardlinkFileMapI
-		if sliceutils.StringSliceContains(clientFilter.MapHardlinksFor, "clean", true) {
+		if evaluate.StringSliceContains(clientFilter.MapHardlinksFor, "clean", true) {
 			// download path mapping
 			clientDownloadPathMapping, err := getClientDownloadPathMapping(clientConfig)
 			if err != nil {
@@ -180,8 +178,8 @@ func init() {
 	cleanCmd.Flags().StringVar(&flagFilterName, "filter", "", "Filter to use instead of client")
 }
 
-// checkFilterUsesFreespace checks if any filter conditions use FreeSpaceGB or FreeSpaceSet
-func checkFilterUsesFreespace(filter *config.FilterConfiguration) bool {
+// filterUsesFreeSpace checks if any filter conditions use FreeSpaceGB or FreeSpaceSet
+func filterUsesFreeSpace(filter *config.FilterConfiguration) bool {
 	// Helper function to check a single expression for free space usage
 	checkExpression := func(expr string) bool {
 		return strings.Contains(expr, "FreeSpaceGB") || strings.Contains(expr, "FreeSpaceSet")

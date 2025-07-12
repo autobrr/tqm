@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/paths"
 	"github.com/autobrr/tqm/pkg/torrentfilemap"
 )
 
@@ -37,27 +38,27 @@ func TestIsDirEmpty(t *testing.T) {
 	baseTestDir := t.TempDir()
 	// Test case 1: Empty directory
 	emptyDir := createTempDir(t, baseTestDir, "empty_dir")
-	isEmpty, err := isDirEmpty(emptyDir)
+	isEmpty, err := paths.IsDirEmpty(emptyDir)
 	assert.NoError(t, err, "isDirEmpty failed for empty directory")
 	assert.True(t, isEmpty, "isDirEmpty should return true for an empty directory")
 
 	// Test case 2: Non-empty directory
 	nonEmptyDir := createTempDir(t, baseTestDir, "non_empty_dir")
 	createTempFile(t, nonEmptyDir, "dummy.txt", "hello")
-	isEmpty, err = isDirEmpty(nonEmptyDir)
+	isEmpty, err = paths.IsDirEmpty(nonEmptyDir)
 	assert.NoError(t, err, "isDirEmpty failed for non-empty directory")
 	assert.False(t, isEmpty, "isDirEmpty should return false for a non-empty directory")
 
 	// Test case 3: Path is a file
 	fileDir := createTempDir(t, baseTestDir, "file_dir")
 	filePath := createTempFile(t, fileDir, "testfile.txt", "content")
-	isEmpty, err = isDirEmpty(filePath)
+	isEmpty, err = paths.IsDirEmpty(filePath)
 	assert.Error(t, err, "isDirEmpty should return an error for a file path")
 	assert.False(t, isEmpty, "isDirEmpty should return false when path is a file")
 
 	// Test case 4: Non-existent path
 	nonExistentPath := filepath.Join(baseTestDir, "non_existent_dir")
-	isEmpty, err = isDirEmpty(nonExistentPath)
+	isEmpty, err = paths.IsDirEmpty(nonExistentPath)
 	assert.ErrorIs(t, err, os.ErrNotExist, "isDirEmpty should return os.ErrNotExist for non-existent path")
 	assert.False(t, isEmpty, "isDirEmpty should return false for non-existent path")
 }
@@ -246,7 +247,7 @@ func TestOrphanIdentification(t *testing.T) {
 	})
 
 	for _, localPath := range orphanFolderPaths {
-		empty, err := isDirEmpty(localPath)
+		empty, err := paths.IsDirEmpty(localPath)
 		require.NoError(t, err)
 
 		if empty {
@@ -308,7 +309,7 @@ func TestOrphanDryRun(t *testing.T) {
 
 	orphanFolderPaths := []string{orphanEmptyFolderPath}
 	for _, localPath := range orphanFolderPaths {
-		_, err := isDirEmpty(localPath)
+		_, err := paths.IsDirEmpty(localPath)
 		require.NoError(t, err)
 	}
 

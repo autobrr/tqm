@@ -114,9 +114,7 @@ var pauseCmd = &cobra.Command{
 						humanize.IBytes(uint64(space)), c.GetFreeSpace())
 				}
 			} else {
-				filterUsesFreespace := checkFilterUsesFreespace(clientFilter)
-
-				if filterUsesFreespace {
+				if filterUsesFreeSpace(clientFilter) {
 					log.Error("Deluge requires free_space_path to be configured in order to retrieve free space information")
 					os.Exit(1)
 				}

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"sort"
 	"strings"
@@ -17,7 +16,7 @@ import (
 	"github.com/autobrr/tqm/pkg/config"
 	"github.com/autobrr/tqm/pkg/logger"
 	"github.com/autobrr/tqm/pkg/notification"
-	paths "github.com/autobrr/tqm/pkg/pathutils"
+	"github.com/autobrr/tqm/pkg/paths"
 	"github.com/autobrr/tqm/pkg/torrentfilemap"
 	"github.com/autobrr/tqm/pkg/tracker"
 )
@@ -101,12 +100,12 @@ var orphanCmd = &cobra.Command{
 			log.Infof("Retrieved %d torrents", len(torrents))
 		}
 
-		// create map of files associated to torrents (via hash)
+		// create map of files associated with torrents (via hash)
 		tfm := torrentfilemap.New(torrents)
 		log.Infof("Mapped torrents to %d unique torrent files", tfm.Length())
 
 		// get all paths in client download location
-		localDownloadPaths, _ := paths.GetPathsInFolder(*clientDownloadPath, true, true,
+		localDownloadPaths, _ := paths.InFolder(*clientDownloadPath, true, true,
 			nil)
 		log.Tracef("Retrieved %d paths from: %q", len(localDownloadPaths), *clientDownloadPath)
 
@@ -130,16 +129,20 @@ var orphanCmd = &cobra.Command{
 		log.Infof("Retrieved paths from %q: %d files / %d folders", *clientDownloadPath, len(localFilePaths),
 			len(localFolderPaths))
 
-		const maxWorkers = 10
-		const batchSize = 50
+		const (
+			maxWorkers = 10
+			batchSize  = 50
+		)
 
-		var wg sync.WaitGroup
-		var mu sync.Mutex
-		var removeFailures atomic.Uint32
-		var removedLocalFiles atomic.Uint32
-		var ignoredLocalFiles atomic.Uint32
-		var removedLocalFilesSize atomic.Uint64
-		var fields []notification.Field
+		var (
+			wg                    sync.WaitGroup
+			mu                    sync.Mutex
+			removeFailures        atomic.Uint32
+			removedLocalFiles     atomic.Uint32
+			ignoredLocalFiles     atomic.Uint32
+			removedLocalFilesSize atomic.Uint64
+			fields                []notification.Field
+		)
 
 		filter, err := getClientFilter(clientConfig)
 		if err != nil {
@@ -163,7 +166,7 @@ var orphanCmd = &cobra.Command{
 				return
 			}
 
-			if isIgnoredPath(localPath, filter.Orphan.IgnorePaths) {
+			if paths.IsIgnored(localPath, filter.Orphan.IgnorePaths) {
 				mu.Lock()
 				log.Debugf("File matches a path in the ignore list, skipping removal: %q", localPath)
 				mu.Unlock()
@@ -235,7 +238,7 @@ var orphanCmd = &cobra.Command{
 				continue
 			}
 
-			if isIgnoredPath(localPath, filter.Orphan.IgnorePaths) {
+			if paths.IsIgnored(localPath, filter.Orphan.IgnorePaths) {
 				log.Debugf("Folder matches a path in the ignore list, skipping removal: %q", localPath)
 				ignoredLocalFolders++
 				continue
@@ -259,7 +262,7 @@ var orphanCmd = &cobra.Command{
 
 			removed := false
 
-			empty, err := isDirEmpty(localPath)
+			empty, err := paths.IsDirEmpty(localPath)
 			if err != nil {
 				log.WithError(err).Warnf("Could not check if directory is empty, skipping removal: %q", localPath)
 			} else if !empty {
@@ -313,37 +316,6 @@ var orphanCmd = &cobra.Command{
 			log.WithError(sendErr).Error("Failed sending notification")
 		}
 	},
-}
-
-func isDirEmpty(path string) (bool, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return false, err
-	}
-	defer f.Close()
-
-	// Read exactly one entry. If EOF, the directory is empty.
-	// If we get any entry, it's not empty. Poetry.
-	_, err = f.Readdirnames(1)
-	if err == io.EOF {
-		return true, nil
-	}
-	if err != nil {
-		return false, err
-	}
-
-	return false, nil
-}
-
-// isIgnoredPath checks if a path is in the provided ignore list
-func isIgnoredPath(path string, ignoreList []string) bool {
-	for _, ignore := range ignoreList {
-		if strings.HasPrefix(path, ignore) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // processInBatches processes a map in batches using a worker pool

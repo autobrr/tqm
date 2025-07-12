@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	nethttp "net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 
-	"github.com/autobrr/tqm/pkg/httputils"
+	"github.com/autobrr/tqm/pkg/http"
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
@@ -24,7 +24,7 @@ type PTPConfig struct {
 
 type PTP struct {
 	cfg     PTPConfig
-	http    *http.Client
+	http    *nethttp.Client
 	headers map[string]string
 	log     *logrus.Entry
 }
@@ -33,7 +33,7 @@ func NewPTP(c PTPConfig) *PTP {
 	l := logger.GetLogger("ptp-api")
 	return &PTP{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
+		http: http.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		headers: map[string]string{
 			"ApiUser": c.User,
 			"ApiKey":  c.Key,
@@ -64,7 +64,7 @@ func (c *PTP) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	c.log.Tracef("Querying PTP API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
 	// prepare request
-	reqURL, err := httputils.WithQuery("https://passthepopcorn.me/torrents.php", url.Values{
+	requestURL, err := http.URLWithQuery("https://passthepopcorn.me/torrents.php", url.Values{
 		"infohash": []string{torrent.Hash},
 	})
 	if err != nil {
@@ -72,7 +72,7 @@ func (c *PTP) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	}
 
 	// send request
-	resp, err := rek.Get(reqURL, rek.Client(c.http), rek.Headers(c.headers), rek.Context(ctx))
+	resp, err := rek.Get(requestURL, rek.Client(c.http), rek.Headers(c.headers), rek.Context(ctx))
 	if err != nil {
 		c.log.WithError(err).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
 		return fmt.Errorf("ptp: request search: %w", err), false

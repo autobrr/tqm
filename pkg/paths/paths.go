@@ -1,9 +1,12 @@
 package paths
 
 import (
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,10 +28,13 @@ type Path struct {
 type callbackAllowed func(string) *string
 
 var (
-	log = logger.GetLogger("pathutils")
+	log = logger.GetLogger("paths")
 )
 
-func GetPathsInFolder(folder string, includeFiles bool, includeFolders bool, acceptFn callbackAllowed) ([]Path, uint64) {
+// InFolder traverses the provided folder and returns a list of paths and their total size.
+// Files and folders can optionally be included in the results, and a custom accept function can be provided to
+// filter the results further.
+func InFolder(folder string, includeFiles bool, includeFolders bool, acceptFn callbackAllowed) ([]Path, uint64) {
 	var paths []Path
 	var size uint64 = 0
 	var mutex sync.Mutex
@@ -103,4 +109,32 @@ func GetPathsInFolder(folder string, includeFiles bool, includeFolders bool, acc
 	}
 
 	return paths, size
+}
+
+// IsIgnored checks if a path is in the provided ignore list
+func IsIgnored(path string, ignoreList []string) bool {
+	return slices.ContainsFunc(ignoreList, func(s string) bool {
+		return strings.HasPrefix(path, s)
+	})
+}
+
+// IsDirEmpty checks if the provided path is an empty dir
+func IsDirEmpty(path string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+
+	// Read exactly one entry. If EOF, the directory is empty.
+	// If we get any entry, it's not empty. Poetry.
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	return false, nil
 }

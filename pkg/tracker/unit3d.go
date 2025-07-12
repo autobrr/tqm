@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	nethttp "net/http"
 	"regexp"
 	"strings"
 	"time"
@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 
-	"github.com/autobrr/tqm/pkg/httputils"
+	"github.com/autobrr/tqm/pkg/http"
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
@@ -24,7 +24,7 @@ type UNIT3DConfig struct {
 
 type UNIT3D struct {
 	cfg     UNIT3DConfig
-	http    *http.Client
+	http    *nethttp.Client
 	headers map[string]string
 	log     *logrus.Entry
 }
@@ -35,7 +35,7 @@ func NewUNIT3D(name string, c UNIT3DConfig) Interface {
 
 	return &UNIT3D{
 		cfg:  c,
-		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
+		http: http.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		headers: map[string]string{
 			"Authorization": fmt.Sprintf("Bearer %s", c.APIKey),
 			"Accept":        "application/json",
