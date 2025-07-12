@@ -29,7 +29,7 @@ const (
 )
 
 type DiscordMessage struct {
-	Content   interface{}    `json:"content"`
+	Content   any            `json:"content"`
 	Username  string         `json:"username,omitempty"`
 	AvatarURL string         `json:"avatar_url,omitempty"`
 	Embeds    []DiscordEmbed `json:"embeds,omitempty"`
@@ -40,7 +40,7 @@ type DiscordEmbed struct {
 	Description string               `json:"description"`
 	Color       int                  `json:"color"`
 	Fields      []DiscordEmbedsField `json:"fields,omitempty"`
-	Footer      DiscordEmbedsFooter  `json:"footer,omitempty"`
+	Footer      DiscordEmbedsFooter  `json:"footer,omitzero"`
 	Timestamp   time.Time            `json:"timestamp"`
 }
 

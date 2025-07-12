@@ -101,7 +101,7 @@ func showUsing() {
 	log.Info("------------------")
 }
 
-func validateClientEnabled(clientConfig map[string]interface{}) error {
+func validateClientEnabled(clientConfig map[string]any) error {
 	v, ok := clientConfig["enabled"]
 	if !ok {
 		return fmt.Errorf("no enabled setting found in client configuration: %+v", clientConfig)
@@ -115,7 +115,7 @@ func validateClientEnabled(clientConfig map[string]interface{}) error {
 	return nil
 }
 
-func getClientConfigString(setting string, clientConfig map[string]interface{}) (*string, error) {
+func getClientConfigString(setting string, clientConfig map[string]any) (*string, error) {
 	v, ok := clientConfig[setting]
 	if !ok {
 		return nil, fmt.Errorf("no %q setting found in client configuration: %+v", setting, clientConfig)
@@ -129,13 +129,13 @@ func getClientConfigString(setting string, clientConfig map[string]interface{}) 
 	return &value, nil
 }
 
-func getClientDownloadPathMapping(clientConfig map[string]interface{}) (map[string]string, error) {
+func getClientDownloadPathMapping(clientConfig map[string]any) (map[string]string, error) {
 	v, ok := clientConfig["download_path_mapping"]
 	if !ok {
 		return nil, nil
 	}
 
-	tmp, ok := v.(map[string]interface{})
+	tmp, ok := v.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("failed type-asserting download_path_mapping of client: %#v", v)
 	}
@@ -152,7 +152,7 @@ func getClientDownloadPathMapping(clientConfig map[string]interface{}) (map[stri
 	return clientDownloadPathMapping, nil
 }
 
-func getClientFilter(clientConfig map[string]interface{}) (*config.FilterConfiguration, error) {
+func getClientFilter(clientConfig map[string]any) (*config.FilterConfiguration, error) {
 	v, ok := clientConfig["filter"]
 	if !ok {
 		return nil, fmt.Errorf("no filter setting found in client configuration: %+v", clientConfig)

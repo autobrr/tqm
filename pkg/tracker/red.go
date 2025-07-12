@@ -50,7 +50,7 @@ func (c *RED) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		Status   string `json:"status"`
 		Error    string `json:"error"`
 		Response struct {
-			Group   interface{} `json:"group"`
+			Group   any `json:"group"`
 			Torrent struct {
 				ID       int    `json:"id"`
 				InfoHash string `json:"infoHash"`

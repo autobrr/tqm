@@ -22,7 +22,7 @@ type TrackerErrorsConfig struct {
 }
 
 type Configuration struct {
-	Clients                    map[string]map[string]interface{}
+	Clients                    map[string]map[string]any
 	Filters                    map[string]FilterConfiguration
 	Trackers                   tracker.Config
 	BypassIgnoreIfUnregistered bool

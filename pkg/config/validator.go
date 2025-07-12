@@ -56,7 +56,7 @@ func getValidatorFromTag(tag string) Validator {
 
 /* Public */
 
-func ValidateStruct(s interface{}) []error {
+func ValidateStruct(s any) []error {
 	var errs []error
 
 	// ValueOf returns a Value representing the run-time data

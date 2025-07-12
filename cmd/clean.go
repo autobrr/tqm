@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -187,32 +188,24 @@ func checkFilterUsesFreespace(filter *config.FilterConfiguration) bool {
 	}
 
 	// Check all filter conditions
-	for _, expr := range filter.Ignore {
-		if checkExpression(expr) {
-			return true
-		}
+	if slices.ContainsFunc(filter.Ignore, checkExpression) {
+		return true
 	}
-	for _, expr := range filter.Remove {
-		if checkExpression(expr) {
-			return true
-		}
+	if slices.ContainsFunc(filter.Remove, checkExpression) {
+		return true
 	}
 
 	// Check label expressions
 	for _, label := range filter.Label {
-		for _, expr := range label.Update {
-			if checkExpression(expr) {
-				return true
-			}
+		if slices.ContainsFunc(label.Update, checkExpression) {
+			return true
 		}
 	}
 
 	// Check tag expressions
 	for _, tag := range filter.Tag {
-		for _, expr := range tag.Update {
-			if checkExpression(expr) {
-				return true
-			}
+		if slices.ContainsFunc(tag.Update, checkExpression) {
+			return true
 		}
 	}
 

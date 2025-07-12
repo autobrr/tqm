@@ -33,7 +33,7 @@ func getAllPatternsFromFilter(filter *config.FilterConfiguration) ([]string, err
 		patternStr := match.GroupByNumber(1).String()
 
 		// handle comma-separated patterns for RegexMatchAny/All
-		for _, p := range strings.Split(patternStr, ",") {
+		for p := range strings.SplitSeq(patternStr, ",") {
 			p = strings.TrimSpace(p)
 			if p != "" {
 				patterns = append(patterns, p)
