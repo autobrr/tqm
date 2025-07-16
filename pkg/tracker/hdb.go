@@ -1,18 +1,18 @@
 package tracker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	nethttp "net/http"
+	"net/http"
 	"strings"
 	"time"
 
-	"github.com/lucperkins/rek"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 
-	"github.com/autobrr/tqm/pkg/http"
+	"github.com/autobrr/tqm/pkg/httputils"
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
@@ -22,17 +22,22 @@ type HDBConfig struct {
 }
 
 type HDB struct {
-	cfg  HDBConfig
-	http *nethttp.Client
-	log  *logrus.Entry
+	cfg     HDBConfig
+	http    *http.Client
+	headers map[string]string
+	log     *logrus.Entry
 }
 
 func NewHDB(c HDBConfig) *HDB {
 	l := logger.GetLogger("hdb-api")
 	return &HDB{
 		cfg:  c,
-		http: http.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
-		log:  l,
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
+		headers: map[string]string{
+			"Content-Type": "application/json",
+			"Accept":       "application/json",
+		},
+		log: l,
 	}
 }
 
@@ -45,24 +50,22 @@ func (c *HDB) Check(host string) bool {
 }
 
 func (c *HDB) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
-	//c.log.Infof("Checking HDB torrent: %s", torrent.Name)
-
-	type Request struct {
+	type request struct {
 		Username string `json:"username"`
 		Passkey  string `json:"passkey"`
 		Hash     string `json:"hash"`
 	}
 
-	type TorrentResult struct {
+	type data struct {
 		ID   int    `json:"id"`
 		Hash string `json:"hash"`
 		Name string `json:"name"`
 	}
 
-	type Response struct {
-		Status  int             `json:"status"`
-		Message string          `json:"message"`
-		Data    []TorrentResult `json:"data"`
+	type response struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+		Data    []data `json:"data"`
 	}
 
 	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
@@ -73,44 +76,26 @@ func (c *HDB) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	c.log.Tracef("Querying HDB API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
 	// prepare request body
-	reqBody := Request{
+	payload := &request{
 		Username: c.cfg.Username,
 		Passkey:  c.cfg.Passkey,
 		Hash:     strings.ToUpper(torrent.Hash),
 	}
 
-	// send request
-	resp, err := rek.Post("https://hdbits.org/api/torrents",
-		rek.Client(c.http),
-		rek.Json(reqBody),
-		rek.Context(ctx),
-	)
+	body, err := json.Marshal(payload)
 	if err != nil {
-		if resp == nil {
-			c.log.WithError(err).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
-			return fmt.Errorf("hdb: request search: %w", err), false
-		}
-	}
-	defer resp.Body().Close()
-
-	// validate response
-	if resp.StatusCode() != 200 {
-		c.log.WithError(err).Errorf("Failed validating search response for %s (hash: %s), response: %s",
-			torrent.Name, torrent.Hash, resp.Status())
-		return fmt.Errorf("hdb: validate search response: %s", resp.Status()), false
+		return fmt.Errorf("marshalling request: %w", err), false
 	}
 
-	// decode response
-	b := new(Response)
-	if err := json.NewDecoder(resp.Body()).Decode(b); err != nil {
-		c.log.WithError(err).Errorf("Failed decoding search response for %s (hash: %s)",
-			torrent.Name, torrent.Hash)
-		return fmt.Errorf("hdb: decode search response: %w", err), false
+	var resp *response
+	err = httputils.MakeAPIRequest(ctx, c.http, http.MethodPost, "https://hdbits.org/api/torrents", bytes.NewReader(body), c.headers, &resp)
+	if err != nil {
+		return fmt.Errorf("making api request: %w", err), false
 	}
 
 	// HDB returns status 0 for success, anything else is an error
 	// if we get no results for a valid hash, the torrent is unregistered
-	return nil, b.Status == 0 && len(b.Data) == 0
+	return nil, resp.Status == 0 && len(resp.Data) == 0
 }
 
 func (c *HDB) IsTrackerDown(_ *Torrent) (error, bool) {

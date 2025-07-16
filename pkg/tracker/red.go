@@ -2,17 +2,16 @@ package tracker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	nethttp "net/http"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
-	"github.com/lucperkins/rek"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 
-	"github.com/autobrr/tqm/pkg/http"
+	"github.com/autobrr/tqm/pkg/httputils"
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
@@ -21,17 +20,22 @@ type REDConfig struct {
 }
 
 type RED struct {
-	cfg  REDConfig
-	http *nethttp.Client
-	log  *logrus.Entry
+	cfg     REDConfig
+	http    *http.Client
+	headers map[string]string
+	log     *logrus.Entry
 }
 
 func NewRED(c REDConfig) *RED {
 	l := logger.GetLogger("red-api")
 	return &RED{
 		cfg:  c,
-		http: http.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
-		log:  l,
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
+		headers: map[string]string{
+			"Accept":        "application/json",
+			"Authorization": "token " + c.Key,
+		},
+		log: l,
 	}
 }
 
@@ -44,18 +48,10 @@ func (c *RED) Check(host string) bool {
 }
 
 func (c *RED) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
-	//c.log.Infof("Checking RED torrent: %s", torrent.Name)
-
-	type Response struct {
+	type response struct {
 		Status   string `json:"status"`
 		Error    string `json:"error"`
-		Response struct {
-			Group   any `json:"group"`
-			Torrent struct {
-				ID       int    `json:"id"`
-				InfoHash string `json:"infoHash"`
-			} `json:"torrent"`
-		} `json:"response"`
+		Response any    `json:"response"`
 	}
 
 	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
@@ -66,40 +62,21 @@ func (c *RED) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 	c.log.Tracef("Querying RED API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
 	// prepare request
-	url := fmt.Sprintf("https://redacted.sh/ajax.php?action=torrent&hash=%s", strings.ToUpper(torrent.Hash))
-
-	// send request with API key in header
-	resp, err := rek.Get(url,
-		rek.Client(c.http),
-		rek.Headers(map[string]string{
-			"Authorization": c.cfg.Key,
-		}),
-		rek.Context(ctx),
-	)
+	requestURL, err := httputils.URLWithQuery("https://redacted.sh/ajax.php", url.Values{
+		"action": []string{"torrent"},
+		"hash":   []string{torrent.Hash},
+	})
 	if err != nil {
-		if resp == nil {
-			c.log.WithError(err).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
-			return fmt.Errorf("redacted: request search: %w", err), false
-		}
-	}
-	defer resp.Body().Close()
-
-	// validate response
-	if resp.StatusCode() != 200 && resp.StatusCode() != 400 {
-		c.log.WithError(err).Errorf("Failed validating search response for %s (hash: %s), response: %s",
-			torrent.Name, torrent.Hash, resp.Status())
-		return fmt.Errorf("redacted: validate search response: %s", resp.Status()), false
+		return fmt.Errorf("creating request URL: %w", err), false
 	}
 
-	// decode response
-	b := new(Response)
-	if err := json.NewDecoder(resp.Body()).Decode(b); err != nil {
-		c.log.WithError(err).Errorf("Failed decoding search response for %s (hash: %s)",
-			torrent.Name, torrent.Hash)
-		return fmt.Errorf("redacted: decode search response: %w", err), false
+	var resp *response
+	err = httputils.MakeAPIRequest(ctx, c.http, http.MethodGet, requestURL, nil, c.headers, &resp)
+	if err != nil {
+		return fmt.Errorf("making api request: %w", err), false
 	}
 
-	return nil, b.Status == "failure" && b.Error == "bad hash parameter"
+	return nil, resp.Status == "failure" && resp.Error == "bad hash parameter"
 }
 
 func (c *RED) IsTrackerDown(_ *Torrent) (error, bool) {
