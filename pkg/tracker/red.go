@@ -61,7 +61,6 @@ func (c *RED) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 
 	c.log.Tracef("Querying RED API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
-	// prepare request
 	requestURL, err := httputils.URLWithQuery("https://redacted.sh/ajax.php", url.Values{
 		"action": []string{"torrent"},
 		"hash":   []string{torrent.Hash},

@@ -69,7 +69,6 @@ func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		Success      bool     `json:"success"`
 	}
 
-	// Log API request details
 	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
 		c.log.Info("-----")
 		torrent.APIDividerPrinted = true
@@ -91,7 +90,6 @@ func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		return err
 	}
 
-	// prepare request
 	requestURL, _ := url.JoinPath("https://beyond-hd.me/api/torrents", c.cfg.Key)
 
 	payload := &request{
@@ -110,7 +108,7 @@ func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		return fmt.Errorf("making api request: %w", sanitizeError(err)), false
 	}
 
-	// Verify API response structure
+	// verify API response structure
 	if !resp.Success || resp.StatusCode == 0 || resp.Page == 0 {
 		return fmt.Errorf("API error"), false
 	}

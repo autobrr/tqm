@@ -97,7 +97,6 @@ func (c *UNIT3D) IsUnregistered(ctx context.Context, torrent *Torrent) (error, b
 		return nil, false
 	}
 
-	// prepare request
 	requestURL := fmt.Sprintf("https://%s/api/torrents/%s", c.cfg.Domain, torrentID)
 
 	var resp *response
@@ -106,7 +105,7 @@ func (c *UNIT3D) IsUnregistered(ctx context.Context, torrent *Torrent) (error, b
 		return fmt.Errorf("making api request: %w", err), false
 	}
 
-	// compare info hash
+	// compare hash
 	if strings.EqualFold(resp.Data.Attributes.InfoHash, torrent.Hash) {
 		// torrent exists and hash matches
 		return nil, false

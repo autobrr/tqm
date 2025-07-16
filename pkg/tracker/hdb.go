@@ -75,7 +75,6 @@ func (c *HDB) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 
 	c.log.Tracef("Querying HDB API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
-	// prepare request body
 	payload := &request{
 		Username: c.cfg.Username,
 		Passkey:  c.cfg.Passkey,

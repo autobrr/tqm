@@ -61,7 +61,6 @@ func (c *OPS) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 
 	c.log.Tracef("Querying OPS API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
-	// prepare request
 	requestURL, err := httputils.URLWithQuery("https://orpheus.network/ajax.php", url.Values{
 		"action": []string{"torrent"},
 		"hash":   []string{torrent.Hash},

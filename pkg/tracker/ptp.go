@@ -62,7 +62,6 @@ func (c *PTP) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 
 	c.log.Tracef("Querying PTP API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
-	// prepare request
 	requestURL, err := httputils.URLWithQuery("https://passthepopcorn.me/torrents.php", url.Values{
 		"infohash": []string{torrent.Hash},
 	})

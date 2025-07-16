@@ -126,23 +126,23 @@ func (c *BTN) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		return fmt.Errorf("making api request: %w", err), false
 	}
 
-	// check for RPC error
 	if resp.Error != nil {
 		return fmt.Errorf("API error: %s (code: %d)", resp.Error.Message, resp.Error.Code), false
 	}
 
-	// check if we got any results
 	if resp.Result == nil {
 		return nil, true
 	}
 
-	// compare infohash
+	// compare hash
 	if strings.EqualFold(resp.Result.InfoHash, torrent.Hash) {
+		// torrent exists and hash matches
 		return nil, false
 	}
 
 	// if we get here, the torrent ID exists but hash doesn't match
-	c.log.Debugf("Torrent ID exists but hash mismatch for: %s", torrent.Name)
+	c.log.Debugf("Torrent ID exists but hash mismatch. Expected: %s, Got: %s",
+		torrent.Hash, resp.Result.InfoHash)
 	return nil, true
 }
 
