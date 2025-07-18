@@ -2,18 +2,16 @@ package tracker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	nethttp "net/http"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/lucperkins/rek"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 
-	"github.com/autobrr/tqm/pkg/http"
+	"github.com/autobrr/tqm/pkg/httputils"
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
@@ -24,18 +22,18 @@ type UNIT3DConfig struct {
 
 type UNIT3D struct {
 	cfg     UNIT3DConfig
-	http    *nethttp.Client
+	http    *http.Client
 	headers map[string]string
 	log     *logrus.Entry
 }
 
-// https://github.com/HDInnovations/UNIT3D-Community-Edition/wiki/Torrent-API-(UNIT3D-v8.3.4)
+// API docs: https://hdinnovations.github.io/UNIT3D/torrent_api.html
 func NewUNIT3D(name string, c UNIT3DConfig) Interface {
 	l := logger.GetLogger(fmt.Sprintf("%s-api", strings.ToLower(name)))
 
 	return &UNIT3D{
 		cfg:  c,
-		http: http.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		headers: map[string]string{
 			"Authorization": fmt.Sprintf("Bearer %s", c.APIKey),
 			"Accept":        "application/json",
@@ -71,8 +69,16 @@ func (c *UNIT3D) extractTorrentID(comment string) (string, error) {
 }
 
 func (c *UNIT3D) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
-	if !strings.EqualFold(torrent.TrackerName, c.cfg.Domain) {
-		return nil, false
+	type data struct {
+		Attributes struct {
+			InfoHash string `json:"info_hash"`
+		} `json:"attributes"`
+	}
+
+	type response struct {
+		Data    data   `json:"data"`
+		Message string `json:"message"`
+		Status  int    `json:"status"`
 	}
 
 	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
@@ -80,81 +86,33 @@ func (c *UNIT3D) IsUnregistered(ctx context.Context, torrent *Torrent) (error, b
 		torrent.APIDividerPrinted = true
 	}
 
-	if torrent.Comment == "" {
-		c.log.Debugf("Skipping torrent check - no comment available (likely Deluge client): %s", torrent.Name)
-		return nil, false
-	}
-
 	c.log.Tracef("Querying UNIT3D API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
-	// extract torrent ID from comment
 	torrentID, err := c.extractTorrentID(torrent.Comment)
 	if err != nil {
-		//c.log.Debugf("Skipping torrent check - %v", err)
 		return nil, false
 	}
 
-	type TorrentData struct {
-		Attributes struct {
-			InfoHash string `json:"info_hash"`
-		} `json:"attributes"`
-	}
+	requestURL := fmt.Sprintf("https://%s/api/torrents/%s", c.cfg.Domain, torrentID)
 
-	type Response struct {
-		Data    TorrentData `json:"data"`
-		Message string      `json:"message"`
-		Status  int         `json:"status"`
-	}
-
-	// prepare request
-	url := fmt.Sprintf("https://%s/api/torrents/%s", c.cfg.Domain, torrentID)
-
-	// send request
-	resp, err := rek.Get(url,
-		rek.Client(c.http),
-		rek.Headers(c.headers),
-		rek.Context(ctx),
-	)
+	var resp *response
+	err = httputils.MakeAPIRequest(ctx, c.http, http.MethodGet, requestURL, nil, c.headers, &resp)
 	if err != nil {
-		if resp == nil {
-			c.log.WithError(err).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
-			return fmt.Errorf("unit3d: request search: %w", err), false
-		}
-	}
-	defer resp.Body().Close()
-
-	if resp.StatusCode() == 404 {
-		//c.log.Debugf("Torrent not found: %s (hash: %s)", torrent.Name, torrent.Hash)
-		return nil, true
+		return fmt.Errorf("making api request: %w", err), false
 	}
 
-	// validate other response codes
-	if resp.StatusCode() != 200 {
-		c.log.WithError(err).Errorf("Failed validating search response for %s (hash: %s), response: %s",
-			torrent.Name, torrent.Hash, resp.Status())
-		return fmt.Errorf("unit3d: validate search response: %s", resp.Status()), false
-	}
-
-	// decode response
-	b := new(Response)
-	if err := json.NewDecoder(resp.Body()).Decode(b); err != nil {
-		c.log.WithError(err).Errorf("Failed decoding search response for %s (hash: %s)",
-			torrent.Name, torrent.Hash)
-		return fmt.Errorf("unit3d: decode search response: %w", err), false
-	}
-
-	// compare info hash
-	if strings.EqualFold(b.Data.Attributes.InfoHash, torrent.Hash) {
+	// compare hash
+	if strings.EqualFold(resp.Data.Attributes.InfoHash, torrent.Hash) {
 		// torrent exists and hash matches
 		return nil, false
 	}
 
 	// if we get here, the torrent ID exists but hash doesn't match
 	c.log.Debugf("Torrent ID exists but hash mismatch. Expected: %s, Got: %s",
-		torrent.Hash, b.Data.Attributes.InfoHash)
+		torrent.Hash, resp.Data.Attributes.InfoHash)
 	return nil, true
 }
 
-func (c *UNIT3D) IsTrackerDown(torrent *Torrent) (error, bool) {
+func (c *UNIT3D) IsTrackerDown(_ *Torrent) (error, bool) {
 	return nil, false
 }
