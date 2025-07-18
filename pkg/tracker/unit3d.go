@@ -88,10 +88,6 @@ func (c *UNIT3D) IsUnregistered(ctx context.Context, torrent *Torrent) (error, b
 
 	c.log.Tracef("Querying UNIT3D API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
-	if !strings.EqualFold(torrent.TrackerName, c.cfg.Domain) {
-		return nil, false
-	}
-
 	torrentID, err := c.extractTorrentID(torrent.Comment)
 	if err != nil {
 		return nil, false

@@ -99,10 +99,6 @@ func (c *BTN) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 
 	c.log.Tracef("Querying BTN API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
-	if !strings.EqualFold(torrent.TrackerName, "landof.tv") {
-		return nil, false
-	}
-
 	torrentID, err := c.extractTorrentID(torrent.Comment)
 	if err != nil {
 		return fmt.Errorf("extracting torrent ID: %w", err), false
