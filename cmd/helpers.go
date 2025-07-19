@@ -106,7 +106,7 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 			if err := c.SetTags(ctx, t.Hash, finalTags); err == nil {
 				log.Debugf("Set tags: %v", finalTags)
 				actionTaken = true
-			} else if errors.Is(qbittorrent.ErrUnsupportedVersion, err) {
+			} else if errors.Is(err, qbittorrent.ErrUnsupportedVersion) {
 				log.Debug("Unsupported qBittorrent version, using AddTags and RemoveTags instead")
 
 				if len(addTags) > 0 {
