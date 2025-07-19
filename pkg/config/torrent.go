@@ -107,6 +107,7 @@ var (
 		"host not found",
 		"offline",
 		"your request could not be processed, please try again later",
+		"<none>",
 	}
 
 	// set of statuses that indicate that the torrent is not yet fully uploaded, but not unregistered either
