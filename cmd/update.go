@@ -1,67 +1,41 @@
 package cmd
 
 import (
-	"bufio"
-	"os"
+	"fmt"
 
-	"github.com/blang/semver"
-	"github.com/rhysd/go-github-selfupdate/selfupdate"
+	"github.com/creativeprojects/go-selfupdate"
 	"github.com/spf13/cobra"
 
 	"github.com/autobrr/tqm/pkg/runtime"
 )
 
+const repoSlug = "autobrr/tqm"
+
 var updateCmd = &cobra.Command{
-	Use:   "update",
-	Short: "Update to latest version",
-	Long:  `This command can be used to self-update to the latest version.`,
+	Use:           "update",
+	Short:         "Update tqm",
+	Long:          `Update tqm to latest version.`,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 
-	Run: func(cmd *cobra.Command, args []string) {
-		// init core
-		initCore(false)
-
-		// parse current version
-		v, err := semver.Parse(runtime.Version)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		release, err := selfupdate.UpdateSelf(cmd.Context(), runtime.Version, selfupdate.ParseSlug(repoSlug))
 		if err != nil {
-			log.WithError(err).Fatal("Failed parsing current build version")
+			return fmt.Errorf("could not update binary: %w", err)
 		}
 
-		// detect latest version
-		log.Info("Checking for the latest version...")
-		latest, found, err := selfupdate.DetectLatest("autobrr/tqm")
-		if err != nil {
-			log.WithError(err).Fatal("Failed determining latest available version")
-		}
-
-		// check version
-		if !found || latest.Version.LTE(v) {
-			log.Infof("Already using the latest version: %v", runtime.Version)
-			return
-		}
-
-		// ask update
-		log.Infof("Do you want to update to the latest version: %v? (y/n):", latest.Version)
-		input, err := bufio.NewReader(os.Stdin).ReadString('\n')
-		if err != nil || (input != "y\n" && input != "n\n") {
-			log.Fatal("Failed validating input...")
-		} else if input == "n\n" {
-			return
-		}
-
-		// get existing executable path
-		exe, err := os.Executable()
-		if err != nil {
-			log.WithError(err).Fatal("Failed locating current executable path")
-		}
-
-		if err := selfupdate.UpdateTo(latest.AssetURL, exe); err != nil {
-			log.WithError(err).Fatal("Failed updating existing binary to latest release")
-		}
-
-		log.Infof("Successfully updated to the latest version: %v", latest.Version)
+		fmt.Printf("Successfully updated to version: %s\n", release.Version())
+		return nil
 	},
 }
 
 func init() {
+	updateCmd.SetUsageTemplate(`Usage:
+  {{.CommandPath}}
+  
+Flags:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}
+`)
+
 	rootCmd.AddCommand(updateCmd)
 }
