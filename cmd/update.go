@@ -12,10 +12,11 @@ import (
 const repoSlug = "autobrr/tqm"
 
 var updateCmd = &cobra.Command{
-	Use:                   "update",
-	Short:                 "Update tqm",
-	Long:                  `Update tqm to latest version.`,
-	DisableFlagsInUseLine: true,
+	Use:           "update",
+	Short:         "Update tqm",
+	Long:          `Update tqm to latest version.`,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 
 	RunE: func(cmd *cobra.Command, args []string) error {
 		release, err := selfupdate.UpdateSelf(cmd.Context(), runtime.Version, selfupdate.ParseSlug(repoSlug))
