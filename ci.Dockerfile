@@ -34,7 +34,7 @@ go build -ldflags "-s -w -X github.com/autobrr/tqm/pkg/runtime.Version=${VERSION
 FROM alpine:latest AS runner
 
 LABEL org.opencontainers.image.source="https://github.com/autobrr/tqm"
-LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
+LABEL org.opencontainers.image.licenses="GPL-3.0"
 LABEL org.opencontainers.image.base.name="alpine:latest"
 
 ENV CONFIG_DIR="/config" \
