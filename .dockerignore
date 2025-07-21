@@ -1,0 +1,50 @@
+# Documentation
+*.md
+docs/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Go development
+*.test
+*.out
+coverage.txt
+vendor/
+
+# Build artifacts (except the binary we need)
+dist/
+!dist/*/tqm
+
+# CI/CD
+.github/
+.goreleaser.yml
+
+# Development files
+Makefile
+docker-compose.yml
+.dockerignore
+
+# Temporary files
+*.tmp
+*.log
+tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node.js (if any)
+node_modules/
+npm-debug.log
+
+# Other
+*.orig
+*~
