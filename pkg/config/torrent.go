@@ -149,7 +149,9 @@ type Torrent struct {
 	// tracker
 	TrackerName   string `json:"TrackerName"`
 	TrackerStatus string `json:"TrackerStatus"`
-	Comment       string `json:"Comment"`
+	// AllTrackerStatuses stores status messages from all trackers (key: tracker URL, value: status message)
+	AllTrackerStatuses map[string]string `json:"AllTrackerStatuses,omitempty"`
+	Comment            string            `json:"Comment"`
 
 	RegistrationState TorrentRegistrationState `json:"-"`
 
@@ -161,6 +163,38 @@ type Torrent struct {
 }
 
 func (t *Torrent) IsTrackerDown() bool {
+	// If we have multiple tracker statuses, check if ALL are down
+	if len(t.AllTrackerStatuses) > 0 {
+		workingTrackers := 0
+		downTrackers := 0
+
+		for _, status := range t.AllTrackerStatuses {
+			if status == "" {
+				continue
+			}
+
+			statusLower := strings.ToLower(status)
+			isDown := false
+
+			for _, v := range trackerDownStatuses {
+				if strings.Contains(statusLower, v) {
+					isDown = true
+					break
+				}
+			}
+
+			if isDown {
+				downTrackers++
+			} else {
+				workingTrackers++
+			}
+		}
+
+		// Only consider tracker down if ALL trackers are down (and we have at least one tracker)
+		return downTrackers > 0 && workingTrackers == 0
+	}
+
+	// Fallback to single tracker status for backward compatibility
 	if t.TrackerStatus == "" {
 		return false
 	}
@@ -176,6 +210,24 @@ func (t *Torrent) IsTrackerDown() bool {
 }
 
 func (t *Torrent) IsIntermediateStatus() bool {
+	// If we have multiple tracker statuses, check if ANY has intermediate status
+	if len(t.AllTrackerStatuses) > 0 {
+		for _, status := range t.AllTrackerStatuses {
+			if status == "" {
+				continue
+			}
+
+			statusLower := strings.ToLower(status)
+			for _, v := range trackerIntermediateStatuses {
+				if strings.Contains(statusLower, v) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// Fallback to single tracker status for backward compatibility
 	if t.TrackerStatus == "" {
 		return false
 	}
@@ -229,6 +281,46 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 		return false
 	}
 
+	// If we have multiple tracker statuses, check them
+	if len(t.AllTrackerStatuses) > 0 {
+		if t.IsIntermediateStatus() {
+			return false
+		}
+
+		if t.IsTrackerDown() {
+			t.RegistrationState = RegisteredState
+			return false
+		}
+
+		// Check if ANY tracker reports unregistered status
+		for trackerURL, status := range t.AllTrackerStatuses {
+			if status == "" {
+				continue
+			}
+
+			statusLower := strings.ToLower(status)
+			trackerDomain := ParseTrackerDomain(trackerURL)
+			trackerLower := strings.ToLower(trackerDomain)
+
+			statusMapToCheck := defaultUnregisteredStatusesMap
+			if specificMap, ok := effectiveUnregisteredStatuses[trackerLower]; ok {
+				statusMapToCheck = specificMap
+			}
+
+			for unregStatus := range statusMapToCheck {
+				if strings.Contains(statusLower, unregStatus) {
+					// At least one tracker reports unregistered
+					return true
+				}
+			}
+		}
+
+		// None of the trackers report unregistered
+		t.RegistrationState = RegisteredState
+		return false
+	}
+
+	// Fallback to single tracker status for backward compatibility
 	if t.TrackerStatus == "" {
 		t.RegistrationState = RegisteredState
 		return false
