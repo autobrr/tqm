@@ -189,9 +189,7 @@ func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torren
 			}
 
 			// Store all tracker statuses
-			if tr.Message != "" {
-				allTrackerStatuses[tr.Url] = tr.Message
-			}
+			allTrackerStatuses[tr.Url] = tr.Message
 
 			// Keep first tracker for backward compatibility
 			if !firstTrackerSet {

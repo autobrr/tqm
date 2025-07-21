@@ -96,7 +96,7 @@ func TestTorrent_IsTrackerDown(t *testing.T) {
 					"http://tracker3.com/announce": "timeout",
 				},
 			},
-			expectedDown: true,
+			expectedDown: false,
 		},
 		{
 			name: "only_empty_status_messages",

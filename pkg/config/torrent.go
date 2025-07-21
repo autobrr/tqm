@@ -170,6 +170,7 @@ func (t *Torrent) IsTrackerDown() bool {
 
 		for _, status := range t.AllTrackerStatuses {
 			if status == "" {
+				workingTrackers++
 				continue
 			}
 
@@ -214,6 +215,7 @@ func (t *Torrent) IsIntermediateStatus() bool {
 	if len(t.AllTrackerStatuses) > 0 {
 		for _, status := range t.AllTrackerStatuses {
 			if status == "" {
+				// Empty status means working tracker, not intermediate
 				continue
 			}
 
