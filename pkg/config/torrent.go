@@ -165,13 +165,11 @@ type Torrent struct {
 func (t *Torrent) IsTrackerDown() bool {
 	// If we have multiple tracker statuses, check if ALL are down
 	if len(t.AllTrackerStatuses) > 0 {
-		workingTrackers := 0
-		downTrackers := 0
+		hasDownTracker := false
 
 		for _, status := range t.AllTrackerStatuses {
 			if status == "" {
-				workingTrackers++
-				continue
+				return false
 			}
 
 			statusLower := strings.ToLower(status)
@@ -180,19 +178,17 @@ func (t *Torrent) IsTrackerDown() bool {
 			for _, v := range trackerDownStatuses {
 				if strings.Contains(statusLower, v) {
 					isDown = true
+					hasDownTracker = true
 					break
 				}
 			}
 
-			if isDown {
-				downTrackers++
-			} else {
-				workingTrackers++
+			if !isDown {
+				return false
 			}
 		}
 
-		// Only consider tracker down if ALL trackers are down (and we have at least one tracker)
-		return downTrackers > 0 && workingTrackers == 0
+		return hasDownTracker
 	}
 
 	// Fallback to single tracker status for backward compatibility
