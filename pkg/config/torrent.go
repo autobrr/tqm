@@ -312,6 +312,7 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 			for unregStatus := range statusMapToCheck {
 				if strings.Contains(statusLower, unregStatus) {
 					// At least one tracker reports unregistered
+					t.RegistrationState = UnregisteredState
 					return true
 				}
 			}
