@@ -37,24 +37,18 @@ LABEL org.opencontainers.image.source="https://github.com/autobrr/tqm"
 LABEL org.opencontainers.image.licenses="GPL-3.0"
 LABEL org.opencontainers.image.base.name="alpine:latest"
 
-ENV CONFIG_DIR="/config" \
-    PUID=1000 \
-    PGID=1000
+ENV CONFIG_DIR="/config"
 
-RUN apk --no-cache add ca-certificates curl tzdata jq && \
-    addgroup -g $PGID abc && \
-    adduser -D -u $PUID -G abc abc
+RUN apk --no-cache add ca-certificates curl tzdata jq
+
+RUN mkdir -p /config && \
+    chown nobody:nogroup /config
 
 WORKDIR /app
 VOLUME /config
-EXPOSE 7337
 
 COPY --link --from=app-builder /out/bin/tqm /usr/local/bin/
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD /usr/local/bin/tqm --help > /dev/null || exit 1
-
-USER abc
+USER nobody:nogroup
 
 ENTRYPOINT ["/usr/local/bin/tqm", "--config-dir", "/config"]
