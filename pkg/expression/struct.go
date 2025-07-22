@@ -2,6 +2,12 @@ package expression
 
 import "github.com/expr-lang/expr/vm"
 
+const (
+	TagModeAdd    = "add"
+	TagModeRemove = "remove"
+	TagModeFull   = "full"
+)
+
 type CompiledExpression struct {
 	Program *vm.Program
 	Text    string

@@ -149,13 +149,13 @@ func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 		le := &TagExpression{Name: tagExpr.Name, Mode: tagExpr.Mode, UploadKb: tagExpr.UploadKb}
 
 		if le.Mode == "" {
-			le.Mode = "full"
+			le.Mode = TagModeFull
 		}
 
 		switch le.Mode {
-		case "add", "remove", "full":
+		case TagModeAdd, TagModeRemove, TagModeFull:
 		default:
-			return nil, fmt.Errorf("invalid tag mode '%s' for tag '%s', must be one of: add, remove, full", le.Mode, le.Name)
+			return nil, fmt.Errorf("invalid tag mode '%s' for tag '%s', must be one of: %s, %s, %s", le.Mode, le.Name, TagModeAdd, TagModeRemove, TagModeFull)
 		}
 
 		// compile updates
