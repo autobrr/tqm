@@ -32,6 +32,7 @@ clients:
       /downloads/torrents/qbittorrent/completed: /mnt/local/downloads/torrents/qbittorrent/completed
     enabled: true
     filter: default
+    create_tags_upfront: false # Only sets tags that matches torrents, prevents empty tags
     type: qbittorrent
     url: https://qbittorrent.domain.com/
     user: user

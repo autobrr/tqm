@@ -155,6 +155,19 @@ var retagCmd = &cobra.Command{
 			log.Warnf("If your setup involves multiple torrents sharing the same underlying file using hardlinks, or you are using the 'HardlinkedOutsideClient' field in your filters, you should add 'retag' to the 'MapHardlinksFor' field in your filter configuration")
 		}
 
+		// Verify tags exist on client if configured to create upfront
+		if qbtClient, ok := ct.(*client.QBittorrent); ok && qbtClient.CreateTagsUpfront {
+			var tagList []string
+			for _, v := range exp.Tags {
+				tagList = append(tagList, v.Name)
+			}
+			if err := ct.CreateTags(ctx, tagList); err != nil {
+				log.WithError(err).Fatal("Failed to create tags on client")
+			} else {
+				log.Infof("Verified tags exist on client")
+			}
+		}
+
 		// relabel torrents that meet the filter criteria
 		if err := retagEligibleTorrents(ctx, log, ct, torrents, noti, clientName, startTime); err != nil {
 			log.WithError(err).Fatal("Failed retagging eligible torrents...")

@@ -26,6 +26,7 @@ type QBittorrent struct {
 	User                      string
 	Password                  string
 	EnableAutoTmmAfterRelabel bool
+	CreateTagsUpfront         bool `koanf:"create_tags_upfront"`
 
 	// internal
 	log        *logrus.Entry
@@ -50,6 +51,7 @@ func NewQBittorrent(name string, exp *expression.Expressions) (TagInterface, err
 		log:        logger.GetLogger(name),
 		clientType: "qBittorrent",
 		exp:        exp,
+		CreateTagsUpfront: true,
 	}
 
 	// load config
