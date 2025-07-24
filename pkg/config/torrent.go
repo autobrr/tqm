@@ -165,7 +165,7 @@ type Torrent struct {
 func (t *Torrent) IsTrackerDown() bool {
 	// If we have multiple tracker statuses, check if ALL are down
 	if len(t.AllTrackerStatuses) > 0 {
-		hasDownTracker := false
+		var downCount int
 
 		for _, status := range t.AllTrackerStatuses {
 			if status == "" {
@@ -173,22 +173,16 @@ func (t *Torrent) IsTrackerDown() bool {
 			}
 
 			statusLower := strings.ToLower(status)
-			isDown := false
 
 			for _, v := range trackerDownStatuses {
 				if strings.Contains(statusLower, v) {
-					isDown = true
-					hasDownTracker = true
+					downCount++
 					break
 				}
 			}
-
-			if !isDown {
-				return false
-			}
 		}
 
-		return hasDownTracker
+		return downCount == len(t.AllTrackerStatuses)
 	}
 
 	// Fallback to single tracker status for backward compatibility
@@ -346,6 +340,7 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 
 	for status := range statusMapToCheck {
 		if strings.Contains(statusLower, status) {
+			t.RegistrationState = UnregisteredState
 			return true
 		}
 	}
