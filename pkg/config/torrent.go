@@ -282,17 +282,19 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 			return false
 		}
 
-		switch ur {
-		case true:
+		t.APIDividerPrinted = tt.APIDividerPrinted
+
+		if ur {
 			log.Debugf("%s (hash: %s) confirmed as unregistered by %s API", t.Name, t.Hash, trackerName)
 			t.RegistrationState = UnregisteredState
-		default:
-			log.Debugf("%s (hash: %s) not reported as unregistered by %s API", t.Name, t.Hash, trackerName)
-			t.RegistrationState = RegisteredState
+
+			return true
 		}
 
-		t.APIDividerPrinted = tt.APIDividerPrinted
-		return ur
+		log.Debugf("%s (hash: %s) not reported as unregistered by %s API", t.Name, t.Hash, trackerName)
+		t.RegistrationState = RegisteredState
+
+		return false
 	}
 
 	t.RegistrationState = RegisteredState

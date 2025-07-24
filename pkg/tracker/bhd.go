@@ -90,7 +90,10 @@ func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		return err
 	}
 
-	requestURL, _ := url.JoinPath("https://beyond-hd.me/api/torrents", c.cfg.Key)
+	requestURL, err := url.JoinPath("https://beyond-hd.me/api/torrents", c.cfg.Key)
+	if err != nil {
+		return fmt.Errorf("creating request URL: %w", sanitizeError(err)), false
+	}
 
 	payload := &request{
 		Hash:   torrent.Hash,
