@@ -3,6 +3,8 @@ package config
 import (
 	"context"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTorrent_IsTrackerDown(t *testing.T) {
@@ -134,9 +136,7 @@ func TestTorrent_IsTrackerDown(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.torrent.IsTrackerDown()
-			if got != tt.expectedDown {
-				t.Errorf("IsTrackerDown() = %v, want %v", got, tt.expectedDown)
-			}
+			assert.Equal(t, tt.expectedDown, got)
 		})
 	}
 }
@@ -204,9 +204,7 @@ func TestTorrent_IsIntermediateStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.torrent.IsIntermediateStatus()
-			if got != tt.expectedIntermediate {
-				t.Errorf("IsIntermediateStatus() = %v, want %v", got, tt.expectedIntermediate)
-			}
+			assert.Equal(t, tt.expectedIntermediate, got)
 		})
 	}
 }
@@ -360,9 +358,7 @@ func TestTorrent_IsUnregistered(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.torrent.IsUnregistered(ctx)
-			if got != tt.expectedUnreg {
-				t.Errorf("IsUnregistered() = %v, want %v", got, tt.expectedUnreg)
-			}
+			assert.Equal(t, tt.expectedUnreg, got)
 		})
 	}
 }
@@ -433,9 +429,7 @@ func TestTorrent_IsUnregistered_PerTrackerOverrides(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.torrent.IsUnregistered(ctx)
-			if got != tt.expectedUnreg {
-				t.Errorf("IsUnregistered() = %v, want %v", got, tt.expectedUnreg)
-			}
+			assert.Equal(t, tt.expectedUnreg, got)
 		})
 	}
 

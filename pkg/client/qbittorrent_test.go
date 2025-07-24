@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/autobrr/go-qbittorrent"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/autobrr/tqm/pkg/config"
 )
@@ -173,19 +174,11 @@ func TestQBittorrent_ProcessTrackerStatuses(t *testing.T) {
 			}
 
 			// Verify results
-			if trackerName != tt.expectedTrackerName {
-				t.Errorf("trackerName = %v, want %v", trackerName, tt.expectedTrackerName)
-			}
-			if trackerStatus != tt.expectedTrackerStatus {
-				t.Errorf("trackerStatus = %v, want %v", trackerStatus, tt.expectedTrackerStatus)
-			}
-			if len(allTrackerStatuses) != len(tt.expectedAllTrackerStatuses) {
-				t.Errorf("allTrackerStatuses length = %v, want %v", len(allTrackerStatuses), len(tt.expectedAllTrackerStatuses))
-			}
+			assert.Equal(t, tt.expectedTrackerName, trackerName)
+			assert.Equal(t, tt.expectedTrackerStatus, trackerStatus)
+			assert.Len(t, allTrackerStatuses, len(tt.expectedAllTrackerStatuses))
 			for url, status := range tt.expectedAllTrackerStatuses {
-				if got, ok := allTrackerStatuses[url]; !ok || got != status {
-					t.Errorf("allTrackerStatuses[%s] = %v, want %v", url, got, status)
-				}
+				assert.Equal(t, status, allTrackerStatuses[url])
 			}
 		})
 	}
@@ -242,9 +235,7 @@ func TestParseTrackerDomain(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := config.ParseTrackerDomain(tt.trackerHost)
-			if got != tt.expectedDomain {
-				t.Errorf("ParseTrackerDomain(%s) = %v, want %v", tt.trackerHost, got, tt.expectedDomain)
-			}
+			assert.Equal(t, tt.expectedDomain, got)
 		})
 	}
 }
