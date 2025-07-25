@@ -23,6 +23,7 @@ const (
 	NoRegistrationState TorrentRegistrationState = iota
 	UnregisteredState
 	RegisteredState
+	IntermediateState
 )
 
 var (
@@ -272,11 +273,14 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 		return true
 	case RegisteredState:
 		return false
+	case IntermediateState:
+		return false
 	}
 
 	// If we have multiple tracker statuses, check them
 	if len(t.AllTrackerStatuses) > 0 {
 		if t.IsIntermediateStatus() {
+			t.RegistrationState = IntermediateState
 			return false
 		}
 
@@ -321,6 +325,7 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 	}
 
 	if t.IsIntermediateStatus() {
+		t.RegistrationState = IntermediateState
 		return false
 	}
 
