@@ -1,6 +1,5 @@
 # Documentation
 *.md
-docs/
 
 # Git
 .git/
@@ -19,9 +18,9 @@ docs/
 coverage.txt
 vendor/
 
-# Build artifacts (except the binary we need)
+# Build artifacts
 dist/
-!dist/*/tqm
+build/
 
 # CI/CD
 .github/
@@ -29,22 +28,18 @@ dist/
 
 # Development files
 Makefile
-docker-compose.yml
 .dockerignore
+config.yaml
 
 # Temporary files
 *.tmp
 *.log
-tmp/
 
 # OS files
 .DS_Store
 Thumbs.db
 
-# Node.js (if any)
-node_modules/
-npm-debug.log
-
 # Other
 *.orig
 *~
+activity.log
