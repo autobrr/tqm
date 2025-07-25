@@ -1,19 +1,19 @@
 package tracker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	nethttp "net/http"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/lucperkins/rek"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 
-	"github.com/autobrr/tqm/pkg/http"
+	"github.com/autobrr/tqm/pkg/httputils"
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
@@ -22,34 +22,22 @@ type BHDConfig struct {
 }
 
 type BHD struct {
-	cfg  BHDConfig
-	http *nethttp.Client
-	log  *logrus.Entry
-}
-
-type BHDAPIRequest struct {
-	Hash   string `json:"info_hash"`
-	Action string `json:"action"`
-}
-
-type BHDAPIResponse struct {
-	StatusCode int `json:"status_code"`
-	Page       int `json:"page"`
-	Results    []struct {
-		Name     string `json:"name"`
-		InfoHash string `json:"info_hash"`
-	} `json:"results"`
-	TotalPages   int  `json:"total_pages"`
-	TotalResults int  `json:"total_results"`
-	Success      bool `json:"success"`
+	cfg     BHDConfig
+	http    *http.Client
+	headers map[string]string
+	log     *logrus.Entry
 }
 
 func NewBHD(c BHDConfig) *BHD {
 	l := logger.GetLogger("bhd-api")
 	return &BHD{
 		cfg:  c,
-		http: http.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
-		log:  l,
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
+		headers: map[string]string{
+			"Content-Type": "application/json",
+			"Accept":       "application/json",
+		},
+		log: l,
 	}
 }
 
@@ -62,18 +50,30 @@ func (c *BHD) Check(host string) bool {
 }
 
 func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
-	// prepare request
-	requestURL, _ := url.JoinPath("https://beyond-hd.me/api/torrents", c.cfg.Key)
-	payload := &BHDAPIRequest{
-		Hash:   torrent.Hash,
-		Action: "search",
+	type request struct {
+		Hash   string `json:"info_hash"`
+		Action string `json:"action"`
 	}
 
-	// Log API request details
+	type result struct {
+		Name     string `json:"name"`
+		InfoHash string `json:"info_hash"`
+	}
+
+	type response struct {
+		StatusCode   int      `json:"status_code"`
+		Page         int      `json:"page"`
+		Results      []result `json:"results"`
+		TotalPages   int      `json:"total_pages"`
+		TotalResults int      `json:"total_results"`
+		Success      bool     `json:"success"`
+	}
+
 	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
 		c.log.Info("-----")
 		torrent.APIDividerPrinted = true
 	}
+
 	c.log.Tracef("Querying BHD API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
 	// Helper function to sanitize errors that might contain the API key
@@ -90,39 +90,33 @@ func (c *BHD) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		return err
 	}
 
-	// send request
-	resp, err := rek.Post(requestURL, rek.Client(c.http), rek.Json(payload), rek.Context(ctx))
+	requestURL, err := url.JoinPath("https://beyond-hd.me/api/torrents", c.cfg.Key)
 	if err != nil {
-		safeErr := sanitizeError(err)
-		c.log.WithError(safeErr).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
-		return fmt.Errorf("bhd: request search: %w", safeErr), false
-	}
-	defer resp.Body().Close()
-
-	// Check HTTP status code
-	if resp.StatusCode() != 200 {
-		c.log.Errorf("Failed API response for %s (hash: %s), response: %s",
-			torrent.Name, torrent.Hash, resp.Status())
-		return fmt.Errorf("bhd: non-200 response: %s", resp.Status()), false
+		return fmt.Errorf("creating request URL: %w", sanitizeError(err)), false
 	}
 
-	// Read and parse the response
-	b := new(BHDAPIResponse)
-	if err := json.NewDecoder(resp.Body()).Decode(b); err != nil {
-		safeErr := sanitizeError(err)
-		c.log.WithError(safeErr).Errorf("Failed decoding response for %s (hash: %s)",
-			torrent.Name, torrent.Hash)
-		return fmt.Errorf("bhd: decode response: %w", safeErr), false
+	payload := &request{
+		Hash:   torrent.Hash,
+		Action: "search",
 	}
 
-	// Verify API response structure
-	if !b.Success || b.StatusCode == 0 || b.Page == 0 {
-		c.log.Errorf("Invalid API response for %s (hash: %s): success=%t, status_code=%d, page=%d",
-			torrent.Name, torrent.Hash, b.Success, b.StatusCode, b.Page)
-		return fmt.Errorf("bhd: invalid API response"), false
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshalling request: %w", sanitizeError(err)), false
 	}
 
-	return nil, b.TotalResults < 1
+	var resp *response
+	err = httputils.MakeAPIRequest(ctx, c.http, http.MethodPost, requestURL, bytes.NewReader(body), c.headers, &resp)
+	if err != nil {
+		return fmt.Errorf("making api request: %w", sanitizeError(err)), false
+	}
+
+	// verify API response structure
+	if !resp.Success || resp.StatusCode == 0 || resp.Page == 0 {
+		return fmt.Errorf("API error"), false
+	}
+
+	return nil, resp.TotalResults < 1
 }
 
 func (c *BHD) IsTrackerDown(_ *Torrent) (error, bool) {

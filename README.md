@@ -16,7 +16,7 @@ clients:
     enabled: true
     filter: default
     download_path: /mnt/local/downloads/torrents/deluge
-    free_space_path: /mnt/local/downloads/torrents/deluge  # Required for Deluge with path that exists on server
+    free_space_path: /mnt/local/downloads/torrents/deluge # Required for Deluge with path that exists on server
     download_path_mapping:
       /downloads/torrents/deluge: /mnt/local/downloads/torrents/deluge
     host: localhost
@@ -32,6 +32,7 @@ clients:
       /downloads/torrents/qbittorrent/completed: /mnt/local/downloads/torrents/qbittorrent/completed
     enabled: true
     filter: default
+    create_tags_upfront: false # Only sets tags that matches torrents, prevents empty tags
     type: qbittorrent
     url: https://qbittorrent.domain.com/
     user: user
@@ -117,15 +118,15 @@ filters:
     # Change qbit tags based on filters
     tag:
       - name: low-seed
-      # This must be set
-      # "mode: full" means tag will be added to
-      # torrent if matched and removed from torrent if not
-      # use `add` or `remove` to only add/remove respectivly
-      # NOTE: Mode does not change the way torrents are flagged,
-      # meaning, even with "mode: remove",
-      # tags will be removed if the torrent does NOT match the conditions.
-      # "mode: remove" simply means that tags will not be added
-      # to torrents that do match.
+        # Mode is optional and defaults to "full" if not specified
+        # "mode: full" means tag will be added to
+        # torrent if matched and removed from torrent if not
+        # use `add` or `remove` to only add/remove respectivly
+        # NOTE: Mode does not change the way torrents are flagged,
+        # meaning, even with "mode: remove",
+        # tags will be removed if the torrent does NOT match the conditions.
+        # "mode: remove" simply means that tags will not be added
+        # to torrents that do match.
         mode: full
         # uploadKb: 50 # Optional: Apply 50 KiB/s upload limit if conditions match (-1 for unlimited)
         update:
@@ -137,6 +138,10 @@ filters:
       #   update:
       #     - IsPrivate == false # Only target public torrents
       #     - SeedingDays > 2.0
+      # Example: Tag without mode specification (defaults to "full")
+      # - name: completed-torrents
+      #   update:
+      #     - Downloaded == true
     # Orphan configuration
     orphan:
       # grace period for recently modified files (default: 10m)
@@ -254,35 +259,36 @@ Log(n float64) float64    // The natural logarithm function
 You can use either `IsPublic` or `IsPrivate` to filter torrents - they are complementary fields. Always use explicit comparisons (`== true` or `== false`).
 
 Example filters:
+
 ```yaml
 filters:
   default:
     ignore:
       # These achieve the same result:
-      - IsPublic == false && !IsUnregistered()   # private torrents
-      - IsPrivate == true && !IsUnregistered()   # private torrents
+      - IsPublic == false && !IsUnregistered() # private torrents
+      - IsPrivate == true && !IsUnregistered() # private torrents
     remove:
       # These achieve the same result:
-      - IsPublic == true && Ratio > 2.0    # public torrents
-      - IsPrivate == false && Ratio > 2.0  # public torrents
+      - IsPublic == true && Ratio > 2.0 # public torrents
+      - IsPrivate == false && Ratio > 2.0 # public torrents
     tag:
       - name: public-torrent
         mode: full
         update:
           # These achieve the same result:
-          - IsPublic == true    # public torrents
-          - IsPrivate == false  # public torrents
+          - IsPublic == true # public torrents
+          - IsPrivate == false # public torrents
 ```
 
 ### Conditional Upload Speed Limiting via Tags
 
 You can apply upload speed limits to torrents conditionally based on matching `tag` rules. This is useful for throttling specific groups of torrents (e.g., public torrents).
 
--   Add an optional `uploadKb` field to any rule within the `tag:` section of your filter definition.
--   The value should be the desired upload speed limit in **KiB/s**.
--   Use `-1` to signify an unlimited upload speed. `500` for 500Kb.
--   If a torrent matches the `update:` conditions for a tag rule that includes `uploadKb`, the specified speed limit will be applied to that torrent.
--   This speed limit is applied when you run the `tqm retag <client>` command.
+- Add an optional `uploadKb` field to any rule within the `tag:` section of your filter definition.
+- The value should be the desired upload speed limit in **KiB/s**.
+- Use `-1` to signify an unlimited upload speed. `500` for 500Kb.
+- If a torrent matches the `update:` conditions for a tag rule that includes `uploadKb`, the specified speed limit will be applied to that torrent.
+- This speed limit is applied when you run the `tqm retag <client>` command.
 
 Example:
 
@@ -363,7 +369,7 @@ tracker_errors:
 **Key Points:**
 
 - If a specific tracker is defined under `per_tracker_unregistered_statuses`, the list provided for it **replaces** the default list for torrents associated with that tracker.
-- If a tracker is *not* listed under `per_tracker_unregistered_statuses`, the default built-in list of statuses will be used for its torrents.
+- If a tracker is _not_ listed under `per_tracker_unregistered_statuses`, the default built-in list of statuses will be used for its torrents.
 - Matching against these lists is **exact** and **case-insensitive** (both for the status messages and the tracker names).
 - The check against tracker APIs (if configured for a specific tracker, e.g., PTP, BTN) still happens regardless of the status message matching.
 
@@ -373,7 +379,7 @@ Example:
 filters:
   default:
     ignore:
-      - IsTrackerDown()  # Skip any actions when tracker is down
+      - IsTrackerDown() # Skip any actions when tracker is down
     remove:
       - IsUnregistered() # Safe to use alone due to built-in protection
 ```
@@ -454,7 +460,7 @@ filters:
 
 `tqm pause qbt`
 
-***
+---
 
 ## Notes
 
@@ -499,10 +505,10 @@ filters:
     tag:
       # Single pattern matching
       - RegexMatch("(?i)\\bpattern\\b")
-      
+
       # Match any of multiple patterns (comma-separated)
       - RegexMatchAny("(?i)\\bpattern1\\b, (?i)\\bpattern2\\b")
-      
+
       # Match all patterns (comma-separated)
       - RegexMatchAll("(?i)\\bpattern1\\b, (?i)\\bpattern2\\b")
 ```
@@ -527,7 +533,7 @@ filters:
   ```yaml
   # First pattern is case-insensitive, second is case-sensitive
   - RegexMatchAny("(?i)pattern1, pattern2")
-  
+
   # Both patterns are case-insensitive
   - RegexMatchAny("(?i)pattern1, (?i)pattern2")
   ```

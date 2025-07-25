@@ -23,6 +23,7 @@ const (
 	NoRegistrationState TorrentRegistrationState = iota
 	UnregisteredState
 	RegisteredState
+	IntermediateState
 )
 
 var (
@@ -150,7 +151,9 @@ type Torrent struct {
 	// tracker
 	TrackerName   string `json:"TrackerName"`
 	TrackerStatus string `json:"TrackerStatus"`
-	Comment       string `json:"Comment"`
+	// AllTrackerStatuses stores status messages from all trackers (key: tracker URL, value: status message)
+	AllTrackerStatuses map[string]string `json:"AllTrackerStatuses,omitempty"`
+	Comment            string            `json:"Comment"`
 
 	RegistrationState TorrentRegistrationState `json:"-"`
 
@@ -162,6 +165,29 @@ type Torrent struct {
 }
 
 func (t *Torrent) IsTrackerDown() bool {
+	// If we have multiple tracker statuses, check if ALL are down
+	if len(t.AllTrackerStatuses) > 0 {
+		var downCount int
+
+		for _, status := range t.AllTrackerStatuses {
+			if status == "" {
+				return false
+			}
+
+			statusLower := strings.ToLower(status)
+
+			for _, v := range trackerDownStatuses {
+				if strings.Contains(statusLower, v) {
+					downCount++
+					break
+				}
+			}
+		}
+
+		return downCount == len(t.AllTrackerStatuses)
+	}
+
+	// Fallback to single tracker status for backward compatibility
 	if t.TrackerStatus == "" {
 		return false
 	}
@@ -177,6 +203,25 @@ func (t *Torrent) IsTrackerDown() bool {
 }
 
 func (t *Torrent) IsIntermediateStatus() bool {
+	// If we have multiple tracker statuses, check if ANY has intermediate status
+	if len(t.AllTrackerStatuses) > 0 {
+		for _, status := range t.AllTrackerStatuses {
+			if status == "" {
+				// Empty status means working tracker, not intermediate
+				continue
+			}
+
+			statusLower := strings.ToLower(status)
+			for _, v := range trackerIntermediateStatuses {
+				if strings.Contains(statusLower, v) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// Fallback to single tracker status for backward compatibility
 	if t.TrackerStatus == "" {
 		return false
 	}
@@ -228,14 +273,59 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 		return true
 	case RegisteredState:
 		return false
+	case IntermediateState:
+		return false
 	}
 
+	// If we have multiple tracker statuses, check them
+	if len(t.AllTrackerStatuses) > 0 {
+		if t.IsIntermediateStatus() {
+			t.RegistrationState = IntermediateState
+			return false
+		}
+
+		if t.IsTrackerDown() {
+			t.RegistrationState = RegisteredState
+			return false
+		}
+
+		// Check if ANY tracker reports unregistered status
+		for trackerURL, status := range t.AllTrackerStatuses {
+			if status == "" {
+				continue
+			}
+
+			statusLower := strings.ToLower(status)
+			trackerDomain := ParseTrackerDomain(trackerURL)
+			trackerLower := strings.ToLower(trackerDomain)
+
+			statusMapToCheck := defaultUnregisteredStatusesMap
+			if specificMap, ok := effectiveUnregisteredStatuses[trackerLower]; ok {
+				statusMapToCheck = specificMap
+			}
+
+			for unregStatus := range statusMapToCheck {
+				if strings.Contains(statusLower, unregStatus) {
+					// At least one tracker reports unregistered
+					t.RegistrationState = UnregisteredState
+					return true
+				}
+			}
+		}
+
+		// None of the trackers report unregistered
+		t.RegistrationState = RegisteredState
+		return false
+	}
+
+	// Fallback to single tracker status for backward compatibility
 	if t.TrackerStatus == "" {
 		t.RegistrationState = RegisteredState
 		return false
 	}
 
 	if t.IsIntermediateStatus() {
+		t.RegistrationState = IntermediateState
 		return false
 	}
 
@@ -256,6 +346,7 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 
 	for status := range statusMapToCheck {
 		if strings.Contains(statusLower, status) {
+			t.RegistrationState = UnregisteredState
 			return true
 		}
 	}
@@ -277,19 +368,25 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 		}
 
 		trackerName := tr.Name()
-		if err, ur := tr.IsUnregistered(ctx, tt); err == nil {
-			switch ur {
-			case true:
-				log.Debugf("%s (hash: %s) confirmed as unregistered by %s API", t.Name, t.Hash, trackerName)
-				t.RegistrationState = UnregisteredState
-			default:
-				log.Debugf("%s (hash: %s) not reported as unregistered by %s API", t.Name, t.Hash, trackerName)
-				t.RegistrationState = RegisteredState
-			}
-
-			t.APIDividerPrinted = tt.APIDividerPrinted
-			return ur
+		err, ur := tr.IsUnregistered(ctx, tt)
+		if err != nil {
+			log.Errorf("Error checking unregistered tracker status of %s (hash: %s) using %s API: %v", t.Name, t.Hash, trackerName, err)
+			return false
 		}
+
+		t.APIDividerPrinted = tt.APIDividerPrinted
+
+		if ur {
+			log.Debugf("%s (hash: %s) confirmed as unregistered by %s API", t.Name, t.Hash, trackerName)
+			t.RegistrationState = UnregisteredState
+
+			return true
+		}
+
+		log.Debugf("%s (hash: %s) not reported as unregistered by %s API", t.Name, t.Hash, trackerName)
+		t.RegistrationState = RegisteredState
+
+		return false
 	}
 
 	t.RegistrationState = RegisteredState

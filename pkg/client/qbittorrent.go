@@ -26,6 +26,7 @@ type QBittorrent struct {
 	User                      string
 	Password                  string
 	EnableAutoTmmAfterRelabel bool
+	CreateTagsUpfront         bool `koanf:"create_tags_upfront"`
 
 	// internal
 	log        *logrus.Entry
@@ -50,6 +51,7 @@ func NewQBittorrent(name string, exp *expression.Expressions) (TagInterface, err
 		log:        logger.GetLogger(name),
 		clientType: "qBittorrent",
 		exp:        exp,
+		CreateTagsUpfront: true,
 	}
 
 	// load config
@@ -165,6 +167,7 @@ func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torren
 		// parse tracker details
 		trackerName := ""
 		trackerStatus := ""
+		allTrackerStatuses := make(map[string]string)
 
 		var trackers []qbit.TorrentTracker
 
@@ -179,6 +182,7 @@ func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torren
 			trackers = ts
 		}
 
+		firstTrackerSet := false
 		for _, tr := range trackers {
 			// skip disabled trackers
 			if strings.Contains(tr.Url, "[DHT]") || strings.Contains(tr.Url, "[LSD]") ||
@@ -186,10 +190,15 @@ func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torren
 				continue
 			}
 
-			// use status of the first enabled tracker
-			trackerName = config.ParseTrackerDomain(tr.Url)
-			trackerStatus = tr.Message
-			break
+			// Store all tracker statuses
+			allTrackerStatuses[tr.Url] = tr.Message
+
+			// Keep first tracker for backward compatibility
+			if !firstTrackerSet {
+				trackerName = config.ParseTrackerDomain(tr.Url)
+				trackerStatus = tr.Message
+				firstTrackerSet = true
+			}
 		}
 
 		// added time
@@ -247,9 +256,10 @@ func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torren
 			FreeSpaceGB:  c.GetFreeSpace,
 			FreeSpaceSet: c.freeSpaceSet,
 			// tracker
-			TrackerName:   trackerName,
-			TrackerStatus: trackerStatus,
-			Comment:       td.Comment,
+			TrackerName:        trackerName,
+			TrackerStatus:      trackerStatus,
+			AllTrackerStatuses: allTrackerStatuses,
+			Comment:            td.Comment,
 		}
 
 		torrents[t.Hash] = torrent

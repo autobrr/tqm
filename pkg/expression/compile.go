@@ -148,6 +148,16 @@ func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 	for _, tagExpr := range filter.Tag {
 		le := &TagExpression{Name: tagExpr.Name, Mode: tagExpr.Mode, UploadKb: tagExpr.UploadKb}
 
+		if le.Mode == "" {
+			le.Mode = TagModeFull
+		}
+
+		switch le.Mode {
+		case TagModeAdd, TagModeRemove, TagModeFull:
+		default:
+			return nil, fmt.Errorf("invalid tag mode '%s' for tag '%s', must be one of: %s, %s, %s", le.Mode, le.Name, TagModeAdd, TagModeRemove, TagModeFull)
+		}
+
 		// compile updates
 		for _, updateExpr := range tagExpr.Update {
 			program, err := expr.Compile(updateExpr, expr.Env(exprEnv), expr.AsBool())

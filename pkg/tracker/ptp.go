@@ -2,18 +2,16 @@ package tracker
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	nethttp "net/http"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/lucperkins/rek"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/ratelimit"
 
-	"github.com/autobrr/tqm/pkg/http"
+	"github.com/autobrr/tqm/pkg/httputils"
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
@@ -24,7 +22,7 @@ type PTPConfig struct {
 
 type PTP struct {
 	cfg     PTPConfig
-	http    *nethttp.Client
+	http    *http.Client
 	headers map[string]string
 	log     *logrus.Entry
 }
@@ -33,8 +31,9 @@ func NewPTP(c PTPConfig) *PTP {
 	l := logger.GetLogger("ptp-api")
 	return &PTP{
 		cfg:  c,
-		http: http.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
+		http: httputils.NewRetryableHttpClient(15*time.Second, ratelimit.New(1, ratelimit.WithoutSlack)),
 		headers: map[string]string{
+			"Accept":  "application/json",
 			"ApiUser": c.User,
 			"ApiKey":  c.Key,
 		},
@@ -51,7 +50,7 @@ func (c *PTP) Check(host string) bool {
 }
 
 func (c *PTP) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
-	type Response struct {
+	type response struct {
 		Result        string `json:"Result"`
 		ResultDetails string `json:"ResultDetails"`
 	}
@@ -63,38 +62,20 @@ func (c *PTP) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 
 	c.log.Tracef("Querying PTP API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
 
-	// prepare request
-	requestURL, err := http.URLWithQuery("https://passthepopcorn.me/torrents.php", url.Values{
+	requestURL, err := httputils.URLWithQuery("https://passthepopcorn.me/torrents.php", url.Values{
 		"infohash": []string{torrent.Hash},
 	})
 	if err != nil {
-		return fmt.Errorf("ptp: url parse: %w", err), false
+		return fmt.Errorf("creating request URL: %w", err), false
 	}
 
-	// send request
-	resp, err := rek.Get(requestURL, rek.Client(c.http), rek.Headers(c.headers), rek.Context(ctx))
+	var resp *response
+	err = httputils.MakeAPIRequest(ctx, c.http, http.MethodGet, requestURL, nil, c.headers, &resp)
 	if err != nil {
-		c.log.WithError(err).Errorf("Failed searching for %s (hash: %s)", torrent.Name, torrent.Hash)
-		return fmt.Errorf("ptp: request search: %w", err), false
-	}
-	defer resp.Body().Close()
-
-	// validate response
-	if resp.StatusCode() != 200 {
-		c.log.WithError(err).Errorf("Failed validating search response for %s (hash: %s), response: %s",
-			torrent.Name, torrent.Hash, resp.Status())
-		return fmt.Errorf("ptp: validate search response: %s", resp.Status()), false
+		return fmt.Errorf("making api request: %w", err), false
 	}
 
-	// decode response
-	b := new(Response)
-	if err := json.NewDecoder(resp.Body()).Decode(b); err != nil {
-		c.log.WithError(err).Errorf("Failed decoding search response for %s (hash: %s)",
-			torrent.Name, torrent.Hash)
-		return fmt.Errorf("ptp: decode search response: %w", err), false
-	}
-
-	return nil, b.Result == "ERROR" && b.ResultDetails == "Unregistered Torrent"
+	return nil, resp.Result == "ERROR" && resp.ResultDetails == "Unregistered Torrent"
 }
 
 func (c *PTP) IsTrackerDown(_ *Torrent) (error, bool) {

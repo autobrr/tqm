@@ -192,6 +192,8 @@ func (c *Deluge) GetTorrents(ctx context.Context) (map[string]config.Torrent, er
 			// tracker
 			TrackerName:   t.TrackerHost,
 			TrackerStatus: t.TrackerStatus,
+			// Note: Deluge only uses one tracker at a time, so AllTrackerStatuses is not populated
+			AllTrackerStatuses: nil,
 		}
 
 		torrents[h] = torrent
