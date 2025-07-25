@@ -127,18 +127,6 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate version
-        id: version
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-            COMMITS_SINCE_TAG=$(git rev-list ${LATEST_TAG}..HEAD --count)
-            VERSION="${LATEST_TAG}-dev${COMMITS_SINCE_TAG}"
-            echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          else
-            echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -149,7 +137,6 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},prefix=v
             type=ref,event=branch
             type=ref,event=pr
-            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref == 'refs/heads/main' }}
           flavor: |
             latest=auto
 
@@ -170,7 +157,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BUILDTIME=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
-            VERSION=${{ steps.version.outputs.version != '' && steps.version.outputs.version || fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+            VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
             REVISION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -225,7 +212,6 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},prefix=v
             type=ref,event=branch
             type=ref,event=pr
-            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref == 'refs/heads/main' }}
           flavor: |
             latest=auto
 
