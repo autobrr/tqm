@@ -108,6 +108,7 @@ var (
 		"host not found",
 		"offline",
 		"your request could not be processed, please try again later",
+		"unable to process your request",
 		"<none>",
 	}
 
