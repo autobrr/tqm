@@ -22,13 +22,14 @@ type PTPConfig struct {
 }
 
 type PTP struct {
-	cfg     PTPConfig
-	http    *http.Client
-	headers map[string]string
-	log     *logrus.Entry
+	cfg                  PTPConfig
+	http                 *http.Client
+	headers              map[string]string
+	log                  *logrus.Entry
 	unregisteredCache    map[string]bool
 	unregisteredFetched  bool
 	unregisteredCacheMux sync.RWMutex
+	apiError bool
 }
 
 func NewPTP(c PTPConfig) *PTP {
@@ -77,7 +78,14 @@ func (c *PTP) fetchUnregisteredTorrents(ctx context.Context) error {
 	var resp *unregisteredResponse
 	err = httputils.MakeAPIRequest(ctx, c.http, http.MethodGet, requestURL, nil, c.headers, &resp)
 	if err != nil {
+		c.apiError = true
 		return fmt.Errorf("making api request: %w", err)
+	}
+
+	// validate response structure
+	if resp == nil {
+		c.apiError = true
+		return fmt.Errorf("received nil response from API")
 	}
 
 	c.unregisteredCache = make(map[string]bool)
@@ -98,8 +106,11 @@ func (c *PTP) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 		}
 
 		if err := c.fetchUnregisteredTorrents(ctx); err != nil {
+			// mark as fetched to prevent retrying on every torrent
+			c.unregisteredFetched = true
 			c.unregisteredCacheMux.Unlock()
-			return fmt.Errorf("fetching unregistered torrents: %w", err), false
+			c.log.Errorf("Failed to fetch unregistered torrents from PTP API: %v", err)
+			return nil, false
 		}
 		c.unregisteredFetched = true
 	}
@@ -119,5 +130,5 @@ func (c *PTP) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool
 }
 
 func (c *PTP) IsTrackerDown(_ *Torrent) (error, bool) {
-	return nil, false
+	return nil, c.apiError
 }

@@ -170,3 +170,55 @@ func TestPTP_IsUnregistered_EmptyCache(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, isUnreg, "Torrent should not be unregistered when not in cache")
 }
+
+func TestPTP_IsTrackerDown_AfterAPIError(t *testing.T) {
+	// Test that IsTrackerDown returns true after API error
+	ptp := &PTP{
+		apiError: true,
+		log:      logger.GetLogger("test"),
+	}
+
+	err, isDown := ptp.IsTrackerDown(&Torrent{})
+	require.NoError(t, err)
+	assert.True(t, isDown, "Tracker should be marked as down after API error")
+}
+
+func TestPTP_APIError_Handling(t *testing.T) {
+	// Create test server that returns error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal Server Error"))
+	}))
+	defer server.Close()
+
+	// Create PTP instance
+	ptp := &PTP{
+		cfg:               PTPConfig{User: "test", Key: "test"},
+		http:              &http.Client{Transport: &testTransport{server: server, base: http.DefaultTransport}},
+		headers:           map[string]string{"ApiUser": "test", "ApiKey": "test"},
+		log:               logger.GetLogger("test"),
+		unregisteredCache: make(map[string]bool),
+	}
+
+	ctx := context.Background()
+	torrent := &Torrent{
+		Hash: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		Name: "Test",
+	}
+
+	// First call should attempt API and fail gracefully
+	err, isUnreg := ptp.IsUnregistered(ctx, torrent)
+	assert.NoError(t, err, "Should not return error to caller")
+	assert.False(t, isUnreg, "Should return false when API fails")
+	assert.True(t, ptp.unregisteredFetched, "Should mark as fetched even on error")
+	assert.True(t, ptp.apiError, "Should set apiError flag")
+
+	// Verify tracker is marked as down
+	_, isDown := ptp.IsTrackerDown(torrent)
+	assert.True(t, isDown, "Tracker should be marked as down")
+
+	// Second call should not retry API
+	err2, isUnreg2 := ptp.IsUnregistered(ctx, torrent)
+	assert.NoError(t, err2)
+	assert.False(t, isUnreg2)
+}
