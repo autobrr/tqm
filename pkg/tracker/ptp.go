@@ -65,7 +65,7 @@ func (c *PTP) fetchUnregisteredTorrents(ctx context.Context) error {
 		} `json:"Unregistered"`
 	}
 
-	c.log.Debug("Fetching all unregistered torrents from PTP")
+	c.log.Trace("Querying PTP API for all unregistered torrents")
 
 	requestURL, err := httputils.URLWithQuery("https://passthepopcorn.me/userhistory.php", url.Values{
 		"action": []string{"unregistered"},
