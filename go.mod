@@ -16,7 +16,6 @@ require (
 	github.com/expr-lang/expr v1.17.5
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/knadh/koanf v1.5.0
-	github.com/lucperkins/rek v0.1.3
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
