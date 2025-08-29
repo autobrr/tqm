@@ -18,7 +18,6 @@ import (
 
 const (
 	ptpDomain              = "passthepopcorn.me"
-	ptpAPIBaseURL          = "https://passthepopcorn.me"
 	ptpUserHistoryEndpoint = "/userhistory.php"
 	ptpActionUnregistered  = "unregistered"
 	ptpResponseTypeJSON    = "json"
@@ -75,7 +74,7 @@ func (c *PTP) fetchUnregisteredTorrents(ctx context.Context) error {
 
 	c.log.Trace("Querying PTP API for all unregistered torrents")
 
-	requestURL, err := httputils.URLWithQuery(ptpAPIBaseURL+ptpUserHistoryEndpoint, url.Values{
+	requestURL, err := httputils.URLWithQuery("https://"+ptpDomain+ptpUserHistoryEndpoint, url.Values{
 		"action": []string{ptpActionUnregistered},
 		"type":   []string{ptpResponseTypeJSON},
 	})

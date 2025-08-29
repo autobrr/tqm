@@ -65,14 +65,14 @@ func TestPTP_RealAPI_SingleCall(t *testing.T) {
 	torrent1 := &Torrent{
 		Hash:          hash1,
 		Name:          "Test Movie 1",
-		TrackerName:   "passthepopcorn.me",
+		TrackerName:   ptpDomain,
 		TrackerStatus: "Working", // Status that doesn't match unregistered patterns
 	}
 
 	torrent2 := &Torrent{
 		Hash:          hash2,
 		Name:          "Test Movie 2",
-		TrackerName:   "passthepopcorn.me",
+		TrackerName:   ptpDomain,
 		TrackerStatus: "Active", // Status that doesn't match unregistered patterns
 	}
 
@@ -102,80 +102,5 @@ func TestPTP_RealAPI_SingleCall(t *testing.T) {
 		t.Logf("Cache contains %d unregistered torrents from your PTP account", initialCacheSize)
 	} else {
 		t.Log("No unregistered torrents found in your PTP account")
-	}
-}
-
-// TestPTP_MockFlow tests the logic flow without real API calls
-func TestPTP_MockFlow(t *testing.T) {
-	// This simulates the flow from config.Torrent.IsUnregistered() to tracker API
-
-	// Mock scenarios that would trigger API check:
-	// 1. Tracker is not down
-	// 2. Status doesn't match unregistered patterns
-	// 3. Status is not intermediate
-
-	mockStatuses := []struct {
-		name          string
-		status        string
-		shouldCallAPI bool
-		reason        string
-	}{
-		{
-			name:          "tracker_down_connection_failed",
-			status:        "connection failed",
-			shouldCallAPI: false,
-			reason:        "Tracker down - should not call API",
-		},
-		{
-			name:          "tracker_down_timeout",
-			status:        "timeout",
-			shouldCallAPI: false,
-			reason:        "Tracker down - should not call API",
-		},
-		{
-			name:          "tracker_down_unable_to_process",
-			status:        "unable to process your request",
-			shouldCallAPI: false,
-			reason:        "Tracker down - should not call API",
-		},
-		{
-			name:          "unregistered_pattern",
-			status:        "unregistered",
-			shouldCallAPI: false,
-			reason:        "Matches unregistered pattern - should not call API",
-		},
-		{
-			name:          "unregistered_not_found",
-			status:        "torrent not found",
-			shouldCallAPI: false,
-			reason:        "Matches unregistered pattern - should not call API",
-		},
-		{
-			name:          "intermediate_postponed",
-			status:        "torrent has been postponed",
-			shouldCallAPI: false,
-			reason:        "Intermediate status - should not call API",
-		},
-		{
-			name:          "working_status",
-			status:        "Working",
-			shouldCallAPI: true,
-			reason:        "Working status - should call API",
-		},
-		{
-			name:          "custom_message",
-			status:        "Some custom tracker message",
-			shouldCallAPI: true,
-			reason:        "Unknown status - should call API",
-		},
-	}
-
-	for _, tc := range mockStatuses {
-		t.Run(tc.name, func(t *testing.T) {
-			// This test demonstrates when the PTP API would be called
-			// In the actual flow, config.Torrent.IsUnregistered() makes this decision
-			t.Logf("Status: %q - Would call API: %v (%s)",
-				tc.status, tc.shouldCallAPI, tc.reason)
-		})
 	}
 }
