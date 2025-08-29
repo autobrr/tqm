@@ -16,6 +16,14 @@ import (
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
+const (
+	ptpDomain              = "passthepopcorn.me"
+	ptpAPIBaseURL          = "https://passthepopcorn.me"
+	ptpUserHistoryEndpoint = "/userhistory.php"
+	ptpActionUnregistered  = "unregistered"
+	ptpResponseTypeJSON    = "json"
+)
+
 type PTPConfig struct {
 	User string `koanf:"api_user"`
 	Key  string `koanf:"api_key"`
@@ -29,7 +37,7 @@ type PTP struct {
 	unregisteredCache    map[string]bool
 	unregisteredFetched  bool
 	unregisteredCacheMux sync.RWMutex
-	apiError bool
+	apiError             bool
 }
 
 func NewPTP(c PTPConfig) *PTP {
@@ -52,7 +60,7 @@ func (c *PTP) Name() string {
 }
 
 func (c *PTP) Check(host string) bool {
-	return strings.Contains(host, "passthepopcorn.me")
+	return strings.Contains(host, ptpDomain)
 }
 
 func (c *PTP) fetchUnregisteredTorrents(ctx context.Context) error {
@@ -67,9 +75,9 @@ func (c *PTP) fetchUnregisteredTorrents(ctx context.Context) error {
 
 	c.log.Trace("Querying PTP API for all unregistered torrents")
 
-	requestURL, err := httputils.URLWithQuery("https://passthepopcorn.me/userhistory.php", url.Values{
-		"action": []string{"unregistered"},
-		"type":   []string{"json"},
+	requestURL, err := httputils.URLWithQuery(ptpAPIBaseURL+ptpUserHistoryEndpoint, url.Values{
+		"action": []string{ptpActionUnregistered},
+		"type":   []string{ptpResponseTypeJSON},
 	})
 	if err != nil {
 		return fmt.Errorf("creating request URL: %w", err)

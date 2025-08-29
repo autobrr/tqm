@@ -48,9 +48,9 @@ type QBittorrent struct {
 
 func NewQBittorrent(name string, exp *expression.Expressions) (TagInterface, error) {
 	tc := QBittorrent{
-		log:        logger.GetLogger(name),
-		clientType: "qBittorrent",
-		exp:        exp,
+		log:               logger.GetLogger(name),
+		clientType:        "qBittorrent",
+		exp:               exp,
 		CreateTagsUpfront: true,
 	}
 
