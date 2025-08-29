@@ -49,10 +49,10 @@ archives:
       - tqm
     format_overrides:
       - goos: windows
-        formats: ['zip']
+        formats: ["zip"]
 
 checksum:
-  name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
 
 snapshot:
   version_template: "{{ .Major }}.{{ .Minor }}.{{ .Patch }}-dev+{{ .ShortCommit }}"
@@ -61,9 +61,9 @@ release:
   prerelease: auto
   footer: |
     **Full Changelog**: https://github.com/autobrr/tqm/compare/{{ .PreviousTag }}...{{ .Tag }}
-    
+
     ## What to do next?
-    
+
     - Read the [documentation](https://autobrr.com)
     - Join our [Discord server](https://discord.gg/WQ2eUycxyT)
 
@@ -76,10 +76,10 @@ changelog:
       - Merge remote-tracking branch
       - Merge branch
   groups:
-    - title: 'New Features'
+    - title: "New Features"
       regexp: "^.*feat[(\\w)]*:+.*$"
       order: 0
-    - title: 'Bug fixes'
+    - title: "Bug fixes"
       regexp: "^.*fix[(\\w)]*:+.*$"
       order: 10
     - title: Other work

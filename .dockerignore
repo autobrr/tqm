@@ -1,0 +1,45 @@
+# Documentation
+*.md
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Go development
+*.test
+*.out
+coverage.txt
+vendor/
+
+# Build artifacts
+dist/
+build/
+
+# CI/CD
+.github/
+.goreleaser.yml
+
+# Development files
+Makefile
+.dockerignore
+config.yaml
+
+# Temporary files
+*.tmp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Other
+*.orig
+*~
+activity.log
