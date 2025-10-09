@@ -350,15 +350,15 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		// update the hardlink map before removing the torrent
 		hfm.RemoveByTorrent(*t)
 
+		// Determine whether to delete data
+		localDeleteData := deleteData
+
+		// For non-unique torrents with file overlap (not hardlinked), always keep the data
+		if !isUnique && !isHardlinked {
+			localDeleteData = false
+		}
+
 		if !flagDryRun {
-			// Determine whether to delete data
-			localDeleteData := deleteData
-
-			// For non-unique torrents with file overlap (not hardlinked), always keep the data
-			if !isUnique && !isHardlinked {
-				localDeleteData = false
-			}
-
 			// Do remove
 			removed, err := c.RemoveTorrent(ctx, t, localDeleteData)
 			if err != nil {
@@ -390,7 +390,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 				time.Sleep(1 * time.Second)
 			}
 		} else {
-			log.Warn("Dry-run enabled, skipping remove...")
+			log.Warnf("Dry-run enabled, skipping remove (would delete data: %t)...", localDeleteData)
 		}
 
 		fields = append(fields, noti.BuildField(notification.ActionClean, notification.BuildOptions{
@@ -506,6 +506,8 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 
 	// Process file overlap candidates - these can be removed without data deletion
 	removedCandidates := 0
+	removedFileOverlapCandidates := 0
+	removedHardlinkedCandidates := 0
 	for h, t := range fileOverlapCandidates {
 		noInstances := tfm.NoInstances(t) && hfm.NoInstances(t)
 
@@ -517,6 +519,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		reason := candidateReasons[h]
 		removeTorrent(ctx, h, &t, reason, false, false, false)
 		removedCandidates++
+		removedFileOverlapCandidates++
 	}
 
 	// Process hardlinked candidates - these can be removed with data deletion
@@ -531,6 +534,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		reason := candidateReasons[h]
 		removeTorrent(ctx, h, &t, reason, true, false, false)
 		removedCandidates++
+		removedHardlinkedCandidates++
 	}
 
 	reclaimedSpace := humanize.IBytes(uint64(removedTorrentBytes))
@@ -538,9 +542,26 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	// show result
 	log.Info("-----")
 	log.Infof("Ignored torrents: %d", ignoredTorrents)
+
+	// Calculate skipped counts
+	uniqueRemoved := hardRemoveTorrents - removedCandidates
+	skippedHardlinked := len(hardlinkedCandidates) - removedHardlinkedCandidates
+	skippedFileOverlap := len(fileOverlapCandidates) - removedFileOverlapCandidates
+	totalSkipped := skippedHardlinked + skippedFileOverlap
+
+	// Show skipped counts if any were skipped
+	if totalSkipped > 0 {
+		log.Infof("Skipped: %d hardlinked, %d file overlap", skippedHardlinked, skippedFileOverlap)
+	}
+
+	// Show removed torrents summary
 	log.WithField("reclaimed_space", reclaimedSpace).
-		Infof("Removed torrents: %d initially removed, %d hardlinked candidates, %d file overlap candidates were candidates for removal, only %d of them removed and %d failures",
-			hardRemoveTorrents-removedCandidates, len(hardlinkedCandidates), len(fileOverlapCandidates), removedCandidates, errorRemoveTorrents)
+		Infof("Removed torrents: %d total (%d unique, %d hardlinked, %d file overlap)", hardRemoveTorrents, uniqueRemoved, removedHardlinkedCandidates, removedFileOverlapCandidates)
+
+	// Show failures if any
+	if errorRemoveTorrents > 0 {
+		log.Infof("Failures: %d torrents failed to remove", errorRemoveTorrents)
+	}
 
 	if !noti.CanSend() {
 		log.Debug("Notifications disabled, skipping...")
