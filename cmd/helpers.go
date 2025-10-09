@@ -317,7 +317,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	var fields []notification.Field
 
 	// helper function to remove torrent
-	removeTorrent := func(ctx context.Context, h string, t *config.Torrent, reason string, isHardlinked bool, isUnique bool, isNotUniqueUnregistered bool) {
+	removeTorrent := func(ctx context.Context, h string, t *config.Torrent, reason string, isHardlinked bool, isUnique bool, isNotUniqueUnregistered bool) bool {
 		// Log removal details
 		if !t.APIDividerPrinted {
 			log.Info("-----")
@@ -366,13 +366,13 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 				// don't remove from torrents file map, but prevent further operations on this torrent
 				delete(torrents, h)
 				errorRemoveTorrents++
-				return
+				return false
 			} else if !removed {
 				log.Error("Failed removing torrent...")
 				// don't remove from torrents file map, but prevent further operations on this torrent
 				delete(torrents, h)
 				errorRemoveTorrents++
-				return
+				return false
 			} else {
 				if localDeleteData {
 					log.Info("Removed with data")
@@ -405,6 +405,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		// remove the torrent from the torrent maps
 		tfm.Remove(*t)
 		delete(torrents, h)
+		return true
 	}
 
 	// iterate torrents
@@ -517,9 +518,10 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		}
 
 		reason := candidateReasons[h]
-		removeTorrent(ctx, h, &t, reason, false, false, false)
-		removedCandidates++
-		removedFileOverlapCandidates++
+		if removeTorrent(ctx, h, &t, reason, false, false, false) {
+			removedCandidates++
+			removedFileOverlapCandidates++
+		}
 	}
 
 	// Process hardlinked candidates - these can be removed with data deletion
@@ -532,9 +534,10 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		}
 
 		reason := candidateReasons[h]
-		removeTorrent(ctx, h, &t, reason, true, false, false)
-		removedCandidates++
-		removedHardlinkedCandidates++
+		if removeTorrent(ctx, h, &t, reason, true, false, false) {
+			removedCandidates++
+			removedHardlinkedCandidates++
+		}
 	}
 
 	reclaimedSpace := humanize.IBytes(uint64(removedTorrentBytes))
