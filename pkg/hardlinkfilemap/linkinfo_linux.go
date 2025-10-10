@@ -1,19 +1,21 @@
 package hardlinkfilemap
 
 import (
-	"errors"
-	"os"
-	"strconv"
+	"fmt"
 	"syscall"
 )
 
-func LinkInfo(fi os.FileInfo, _ string) (string, uint64, error) {
-	sys, ok := fi.Sys().(*syscall.Stat_t)
-	if !ok {
-		return "", 0, errors.New("failed to get file identifier")
+// getFileID returns the unique file identifier (device + inode) and link count for a file.
+// This uses direct syscall.Stat() instead of os.Stat() for better performance.
+func getFileID(path string) (FileID, uint64, error) {
+	var stat syscall.Stat_t
+	err := syscall.Stat(path, &stat)
+	if err != nil {
+		return FileID{}, 0, fmt.Errorf("stat file: %w", err)
 	}
 
-	return strconv.FormatUint(sys.Dev, 10) + "|" + strconv.FormatUint(sys.Ino, 10),
-		uint64(sys.Nlink),
-		nil
+	return FileID{
+		Device: stat.Dev,
+		Inode:  stat.Ino,
+	}, uint64(stat.Nlink), nil // Linux Nlink type varies by architecture (uint32 on ARM, uint64 on amd64)
 }

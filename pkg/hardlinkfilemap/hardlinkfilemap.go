@@ -1,10 +1,7 @@
 package hardlinkfilemap
 
 import (
-	"os"
 	"strings"
-
-	"github.com/scylladb/go-set/strset"
 
 	"github.com/autobrr/tqm/pkg/config"
 	"github.com/autobrr/tqm/pkg/logger"
@@ -12,7 +9,7 @@ import (
 
 func New(torrents map[string]config.Torrent, torrentPathMapping map[string]string) HardlinkFileMapI {
 	tfm := &HardlinkFileMap{
-		hardlinkFileMap:    make(map[string]*strset.Set),
+		hardlinkFileMap:    make(map[FileID][]string),
 		log:                logger.GetLogger("hardlinkfilemap"),
 		torrentPathMapping: torrentPathMapping,
 	}
@@ -34,17 +31,11 @@ func (t *HardlinkFileMap) considerPathMapping(path string) string {
 	return path
 }
 
-func (t *HardlinkFileMap) linkInfoByPath(path string) (string, uint64, bool) {
-	stat, err1 := os.Stat(path)
-	if err1 != nil {
-		t.log.Warnf("Failed to stat file: %s - %s", path, err1)
-		return "", 0, false
-	}
-
-	id, nlink, err2 := LinkInfo(stat, path)
-	if err2 != nil {
-		t.log.Warnf("Failed to get file identifier: %s - %s", path, err2)
-		return "", 0, false
+func (t *HardlinkFileMap) linkInfoByPath(path string) (FileID, uint64, bool) {
+	id, nlink, err := getFileID(path)
+	if err != nil {
+		t.log.Warnf("Failed to get file identifier: %s - %s", path, err)
+		return FileID{}, 0, false
 	}
 
 	return id, nlink, true
@@ -64,14 +55,24 @@ func (t *HardlinkFileMap) AddByTorrent(torrent config.Torrent) {
 			continue
 		}
 
-		if _, exists := t.hardlinkFileMap[id]; exists {
+		if paths, exists := t.hardlinkFileMap[id]; exists {
 			// file id already associated with other paths
-			t.hardlinkFileMap[id].Add(f)
+			// Check if path already exists to avoid duplicates
+			found := false
+			for _, existingPath := range paths {
+				if existingPath == f {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.hardlinkFileMap[id] = append(paths, f)
+			}
 			continue
 		}
 
 		// file id has not been seen before, create id entry
-		t.hardlinkFileMap[id] = strset.New(f)
+		t.hardlinkFileMap[id] = []string{f}
 	}
 }
 
@@ -89,13 +90,20 @@ func (t *HardlinkFileMap) RemoveByTorrent(torrent config.Torrent) {
 			continue
 		}
 
-		if _, exists := t.hardlinkFileMap[id]; exists {
+		if paths, exists := t.hardlinkFileMap[id]; exists {
 			// remove this path from the id entry
-			t.hardlinkFileMap[id].Remove(f)
+			newPaths := make([]string, 0, len(paths))
+			for _, path := range paths {
+				if path != f {
+					newPaths = append(newPaths, path)
+				}
+			}
 
 			// remove id entry if no more paths
-			if t.hardlinkFileMap[id].Size() == 0 {
+			if len(newPaths) == 0 {
 				delete(t.hardlinkFileMap, id)
+			} else {
+				t.hardlinkFileMap[id] = newPaths
 			}
 
 			continue
@@ -112,7 +120,7 @@ func (t *HardlinkFileMap) countLinks(f string) (inmap uint64, total uint64, ok b
 	}
 
 	if paths, exists := t.hardlinkFileMap[id]; exists {
-		return uint64(paths.Size()), nlink, true
+		return uint64(len(paths)), nlink, true
 	}
 
 	return 0, nlink, true
