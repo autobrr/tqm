@@ -8,6 +8,11 @@ import (
 
 type TorrentFileMap struct {
 	torrentFileMap map[string]map[string]config.Torrent
-	pathCache      sync.Map
-	mu             sync.RWMutex
+	// pathIndex is a sorted slice of all torrent file paths for fast binary search
+	// This eliminates O(n) linear scanning in HasPath() method
+	pathIndex []string
+	pathCache sync.Map
+	mu        sync.RWMutex
+	// indexDirty tracks whether pathIndex needs rebuilding
+	indexDirty bool
 }

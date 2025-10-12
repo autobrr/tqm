@@ -409,9 +409,9 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	}
 
 	// iterate torrents
-	hardlinkedCandidates := make(map[string]config.Torrent)
-	fileOverlapCandidates := make(map[string]config.Torrent)
-	candidateReasons := make(map[string]string)
+	hardlinkedCandidates := make(map[string]config.Torrent, len(torrents))
+	fileOverlapCandidates := make(map[string]config.Torrent, len(torrents))
+	candidateReasons := make(map[string]string, len(torrents))
 	for h, t := range torrents {
 		// should we ignore this torrent?
 		ignore, err := c.ShouldIgnore(ctx, &t)

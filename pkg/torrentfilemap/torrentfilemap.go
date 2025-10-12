@@ -1,6 +1,7 @@
 package torrentfilemap
 
 import (
+	"sort"
 	"strings"
 	"sync"
 
@@ -8,15 +9,22 @@ import (
 )
 
 func New(torrents map[string]config.Torrent) *TorrentFileMap {
+	// Pre-allocate map capacity: estimate average 10 files per torrent
+	// This reduces map growth/reallocation overhead during initialization
+	estimatedCapacity := len(torrents) * 10
+
 	tfm := &TorrentFileMap{
-		torrentFileMap: make(map[string]map[string]config.Torrent),
+		torrentFileMap: make(map[string]map[string]config.Torrent, estimatedCapacity),
 		pathCache:      sync.Map{},
+		indexDirty:     true,
 	}
 
 	tfm.mu.Lock()
 	for _, torrent := range torrents {
 		tfm.addInternal(torrent)
 	}
+	// Build initial index after all torrents are added
+	tfm.rebuildIndexInternal()
 	tfm.mu.Unlock()
 
 	return tfm
@@ -34,6 +42,23 @@ func (t *TorrentFileMap) addInternal(torrent config.Torrent) {
 			torrent.Hash: torrent,
 		}
 	}
+	t.indexDirty = true
+}
+
+// rebuildIndexInternal rebuilds the path index for fast binary search (non-locking)
+// This should be called after batch modifications to torrentFileMap
+func (t *TorrentFileMap) rebuildIndexInternal() {
+	if !t.indexDirty {
+		return
+	}
+
+	// Build sorted index of all paths for binary search
+	t.pathIndex = make([]string, 0, len(t.torrentFileMap))
+	for path := range t.torrentFileMap {
+		t.pathIndex = append(t.pathIndex, path)
+	}
+	sort.Strings(t.pathIndex)
+	t.indexDirty = false
 }
 
 func (t *TorrentFileMap) Add(torrent config.Torrent) {
@@ -52,12 +77,17 @@ func (t *TorrentFileMap) Add(torrent config.Torrent) {
 			torrent.Hash: torrent,
 		}
 	}
+
+	// Mark index as needing rebuild and rebuild it
+	t.indexDirty = true
+	t.rebuildIndexInternal()
 }
 
 func (t *TorrentFileMap) Remove(torrent config.Torrent) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	needsRebuild := false
 	for _, f := range torrent.Files {
 		if _, exists := t.torrentFileMap[f]; exists {
 			// remove this hash from the file entry
@@ -66,10 +96,17 @@ func (t *TorrentFileMap) Remove(torrent config.Torrent) {
 			// remove file entry if no more hashes
 			if len(t.torrentFileMap[f]) == 0 {
 				delete(t.torrentFileMap, f)
+				needsRebuild = true
 			}
 
 			continue
 		}
+	}
+
+	// Rebuild index if we removed any paths
+	if needsRebuild {
+		t.indexDirty = true
+		t.rebuildIndexInternal()
 	}
 }
 
@@ -119,24 +156,94 @@ func (t *TorrentFileMap) HasPath(path string, torrentPathMapping map[string]stri
 }
 
 // hasPathDirect checks if a path exists directly (no mappings)
+// Uses binary search on sorted path index for O(log n) performance
 func (t *TorrentFileMap) hasPathDirect(path string) bool {
-	for torrentPath := range t.torrentFileMap {
+	// Binary search to find paths that could contain the search path
+	// We use sort.Search to find the first path >= our search path
+	idx := sort.Search(len(t.pathIndex), func(i int) bool {
+		return t.pathIndex[i] >= path
+	})
+
+	// Check paths starting from the found index
+	// Since paths are sorted, we can stop early if we pass the possible matches
+	for i := idx; i < len(t.pathIndex); i++ {
+		torrentPath := t.pathIndex[i]
+
+		// If the torrent path doesn't start with any prefix of our search path,
+		// and our search path doesn't start with any prefix of the torrent path,
+		// we can stop searching (sorted order guarantees no more matches)
+		if !strings.HasPrefix(torrentPath, path[:min(len(path), len(torrentPath))]) &&
+			!strings.HasPrefix(path, torrentPath[:min(len(path), len(torrentPath))]) {
+			break
+		}
+
 		if strings.Contains(torrentPath, path) {
 			return true
 		}
 	}
+
+	// Also check backwards from idx-1 for paths that might contain our search path
+	for i := idx - 1; i >= 0; i-- {
+		torrentPath := t.pathIndex[i]
+
+		// Similar early termination logic
+		if !strings.HasPrefix(torrentPath, path[:min(len(path), len(torrentPath))]) &&
+			!strings.HasPrefix(path, torrentPath[:min(len(path), len(torrentPath))]) {
+			break
+		}
+
+		if strings.Contains(torrentPath, path) {
+			return true
+		}
+	}
+
 	return false
 }
 
 // hasPathWithMapping checks if a path exists using torrent path mappings
+// Uses binary search on sorted path index for O(log n) performance per mapping
 func (t *TorrentFileMap) hasPathWithMapping(path string, torrentPathMapping map[string]string) bool {
-	for torrentPath := range t.torrentFileMap {
-		for mapFrom, mapTo := range torrentPathMapping {
-			if strings.Contains(strings.Replace(torrentPath, mapFrom, mapTo, 1), path) {
+	// For each mapping, we need to check if any torrent path (after mapping) contains our search path
+	// We use a similar binary search approach but need to apply mappings
+
+	for mapFrom, mapTo := range torrentPathMapping {
+		// Binary search to find potential matches
+		idx := sort.Search(len(t.pathIndex), func(i int) bool {
+			return t.pathIndex[i] >= mapFrom
+		})
+
+		// Check paths that could be affected by this mapping
+		for i := idx; i < len(t.pathIndex); i++ {
+			torrentPath := t.pathIndex[i]
+
+			// Only check paths that could be affected by this mapping
+			if !strings.HasPrefix(torrentPath, mapFrom) {
+				// Check if we've moved past potential matches
+				if torrentPath > mapFrom && !strings.HasPrefix(mapFrom, torrentPath[:min(len(mapFrom), len(torrentPath))]) {
+					break
+				}
+				continue
+			}
+
+			mappedPath := strings.Replace(torrentPath, mapFrom, mapTo, 1)
+			if strings.Contains(mappedPath, path) {
 				return true
 			}
 		}
+
+		// Also check earlier paths in case they contain our search path after mapping
+		for i := idx - 1; i >= 0; i-- {
+			torrentPath := t.pathIndex[i]
+
+			if strings.HasPrefix(torrentPath, mapFrom) {
+				mappedPath := strings.Replace(torrentPath, mapFrom, mapTo, 1)
+				if strings.Contains(mappedPath, path) {
+					return true
+				}
+			}
+		}
 	}
+
 	return false
 }
 
@@ -144,7 +251,11 @@ func (t *TorrentFileMap) RemovePath(path string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.pathCache.Delete(path)
-	delete(t.torrentFileMap, path)
+	if _, exists := t.torrentFileMap[path]; exists {
+		delete(t.torrentFileMap, path)
+		t.indexDirty = true
+		t.rebuildIndexInternal()
+	}
 }
 
 func (t *TorrentFileMap) Length() int {

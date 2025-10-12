@@ -110,8 +110,8 @@ var orphanCmd = &cobra.Command{
 		log.Tracef("Retrieved %d paths from: %q", len(localDownloadPaths), *clientDownloadPath)
 
 		// sort paths into their respective maps
-		localFilePaths := make(map[string]int64)
-		localFolderPaths := make(map[string]int64)
+		localFilePaths := make(map[string]int64, len(localDownloadPaths))
+		localFolderPaths := make(map[string]int64, len(localDownloadPaths))
 
 		for _, p := range localDownloadPaths {
 			if p.IsDir {
