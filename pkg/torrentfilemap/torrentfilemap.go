@@ -16,6 +16,7 @@ func New(torrents map[string]config.Torrent) *TorrentFileMap {
 	tfm := &TorrentFileMap{
 		torrentFileMap: make(map[string]map[string]config.Torrent, estimatedCapacity),
 		pathCache:      sync.Map{},
+		mappingCache:   newMappingCacheManager(),
 		indexDirty:     true,
 	}
 
@@ -81,6 +82,9 @@ func (t *TorrentFileMap) Add(torrent config.Torrent) {
 	// Mark index as needing rebuild and rebuild it
 	t.indexDirty = true
 	t.rebuildIndexInternal()
+
+	// Invalidate mapping cache since paths changed
+	t.mappingCache.invalidate()
 }
 
 func (t *TorrentFileMap) Remove(torrent config.Torrent) {
@@ -107,6 +111,9 @@ func (t *TorrentFileMap) Remove(torrent config.Torrent) {
 	if needsRebuild {
 		t.indexDirty = true
 		t.rebuildIndexInternal()
+
+		// Invalidate mapping cache since paths changed
+		t.mappingCache.invalidate()
 	}
 }
 
@@ -201,46 +208,16 @@ func (t *TorrentFileMap) hasPathDirect(path string) bool {
 }
 
 // hasPathWithMapping checks if a path exists using torrent path mappings
-// Uses binary search on sorted path index for O(log n) performance per mapping
+// Uses lazy per-query caching to avoid repeated path transformations
 func (t *TorrentFileMap) hasPathWithMapping(path string, torrentPathMapping map[string]string) bool {
-	// For each mapping, we need to check if any torrent path (after mapping) contains our search path
-	// We use a similar binary search approach but need to apply mappings
+	// Get or build cache for this mapping configuration
+	cache := t.mappingCache.getOrBuild(t.pathIndex, torrentPathMapping)
 
-	for mapFrom, mapTo := range torrentPathMapping {
-		// Binary search to find potential matches
-		idx := sort.Search(len(t.pathIndex), func(i int) bool {
-			return t.pathIndex[i] >= mapFrom
-		})
-
-		// Check paths that could be affected by this mapping
-		for i := idx; i < len(t.pathIndex); i++ {
-			torrentPath := t.pathIndex[i]
-
-			// Only check paths that could be affected by this mapping
-			if !strings.HasPrefix(torrentPath, mapFrom) {
-				// Check if we've moved past potential matches
-				if torrentPath > mapFrom && !strings.HasPrefix(mapFrom, torrentPath[:min(len(mapFrom), len(torrentPath))]) {
-					break
-				}
-				continue
-			}
-
-			mappedPath := strings.Replace(torrentPath, mapFrom, mapTo, 1)
-			if strings.Contains(mappedPath, path) {
-				return true
-			}
-		}
-
-		// Also check earlier paths in case they contain our search path after mapping
-		for i := idx - 1; i >= 0; i-- {
-			torrentPath := t.pathIndex[i]
-
-			if strings.HasPrefix(torrentPath, mapFrom) {
-				mappedPath := strings.Replace(torrentPath, mapFrom, mapTo, 1)
-				if strings.Contains(mappedPath, path) {
-					return true
-				}
-			}
+	// Simple O(n) scan through mapped paths
+	// This is faster than O(n*m) transformation on every call
+	for _, mappedPath := range cache.mappedPaths {
+		if strings.Contains(mappedPath, path) {
+			return true
 		}
 	}
 
@@ -255,6 +232,9 @@ func (t *TorrentFileMap) RemovePath(path string) {
 		delete(t.torrentFileMap, path)
 		t.indexDirty = true
 		t.rebuildIndexInternal()
+
+		// Invalidate mapping cache since paths changed
+		t.mappingCache.invalidate()
 	}
 }
 

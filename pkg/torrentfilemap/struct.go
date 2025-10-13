@@ -12,7 +12,10 @@ type TorrentFileMap struct {
 	// This eliminates O(n) linear scanning in HasPath() method
 	pathIndex []string
 	pathCache sync.Map
-	mu        sync.RWMutex
+	// mappingCache stores precomputed mapped paths per mapping configuration
+	// This avoids O(n*m) path transformations on every HasPath() call
+	mappingCache *mappingCacheManager
+	mu           sync.RWMutex
 	// indexDirty tracks whether pathIndex needs rebuilding
 	indexDirty bool
 }
