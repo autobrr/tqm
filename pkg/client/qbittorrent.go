@@ -48,9 +48,9 @@ type QBittorrent struct {
 
 func NewQBittorrent(name string, exp *expression.Expressions) (TagInterface, error) {
 	tc := QBittorrent{
-		log:        logger.GetLogger(name),
-		clientType: "qBittorrent",
-		exp:        exp,
+		log:               logger.GetLogger(name),
+		clientType:        "qBittorrent",
+		exp:               exp,
 		CreateTagsUpfront: true,
 	}
 
@@ -206,6 +206,10 @@ func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torren
 
 		seedingTime := time.Duration(td.SeedingTime) * time.Second
 
+		// last activity time
+		lastActivitySecs := max(
+			int64(time.Since(time.Unix(t.LastActivity, 0)).Seconds()), 0)
+
 		// torrent files
 		var files []string
 		for _, f := range *tf {
@@ -239,19 +243,22 @@ func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torren
 				"uploading",
 				"stalledUP",
 			}, string(t.State), true),
-			Ratio:          float32(td.ShareRatio),
-			AddedSeconds:   addedTimeSecs,
-			AddedHours:     float32(addedTimeSecs) / 60 / 60,
-			AddedDays:      float32(addedTimeSecs) / 60 / 60 / 24,
-			SeedingSeconds: int64(seedingTime.Seconds()),
-			SeedingHours:   float32(seedingTime.Seconds()) / 60 / 60,
-			SeedingDays:    float32(seedingTime.Seconds()) / 60 / 60 / 24,
-			UpLimit:        int64(td.UpLimit),
-			Label:          t.Category,
-			Seeds:          int64(td.SeedsTotal),
-			Peers:          int64(td.PeersTotal),
-			IsPrivate:      td.IsPrivate,
-			IsPublic:       !td.IsPrivate,
+			Ratio:               float32(td.ShareRatio),
+			AddedSeconds:        addedTimeSecs,
+			AddedHours:          float32(addedTimeSecs) / 60 / 60,
+			AddedDays:           float32(addedTimeSecs) / 60 / 60 / 24,
+			SeedingSeconds:      int64(seedingTime.Seconds()),
+			SeedingHours:        float32(seedingTime.Seconds()) / 60 / 60,
+			SeedingDays:         float32(seedingTime.Seconds()) / 60 / 60 / 24,
+			LastActivitySeconds: lastActivitySecs,
+			LastActivityHours:   float32(lastActivitySecs) / 60 / 60,
+			LastActivityDays:    float32(lastActivitySecs) / 60 / 60 / 24,
+			UpLimit:             int64(td.UpLimit),
+			Label:               t.Category,
+			Seeds:               int64(td.SeedsTotal),
+			Peers:               int64(td.PeersTotal),
+			IsPrivate:           td.IsPrivate,
+			IsPublic:            !td.IsPrivate,
 			// free space
 			FreeSpaceGB:  c.GetFreeSpace,
 			FreeSpaceSet: c.freeSpaceSet,

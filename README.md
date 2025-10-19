@@ -142,6 +142,10 @@ filters:
       # - name: completed-torrents
       #   update:
       #     - Downloaded == true
+      - name: inactive
+        mode: add
+        update:
+          - LastActivityDays > 30
     # Orphan configuration
     orphan:
       # grace period for recently modified files (default: 10m)
@@ -202,28 +206,31 @@ The following torrent fields (along with their types) can be used in the configu
 
 ```go
 type Torrent struct {
- Hash            string
- Name            string
- Path            string
- TotalBytes      int64
- DownloadedBytes int64
- State           string
- Files           []string
- Tags            []string
- Downloaded      bool
- Seeding         bool
- Ratio           float32
- AddedSeconds    int64
- AddedHours      float32
- AddedDays       float32
- SeedingSeconds  int64
- SeedingHours    float32
- SeedingDays     float32
- Label           string
- Seeds           int64
- Peers           int64
- IsPrivate       bool
- IsPublic        bool
+ Hash                 string
+ Name                 string
+ Path                 string
+ TotalBytes           int64
+ DownloadedBytes      int64
+ State                string
+ Files                []string
+ Tags                 []string
+ Downloaded           bool
+ Seeding              bool
+ Ratio                float32
+ AddedSeconds         int64
+ AddedHours           float32
+ AddedDays            float32
+ SeedingSeconds       int64
+ SeedingHours         float32
+ SeedingDays          float32
+ LastActivitySeconds  int64
+ LastActivityHours    float32
+ LastActivityDays     float32
+ Label                string
+ Seeds                int64
+ Peers                int64
+ IsPrivate            bool
+ IsPublic             bool
 
  FreeSpaceGB  func() float64
  FreeSpaceSet bool

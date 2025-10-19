@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -15,16 +16,27 @@ import (
 	"github.com/autobrr/tqm/pkg/logger"
 )
 
+const (
+	ptpDomain              = "passthepopcorn.me"
+	ptpUserHistoryEndpoint = "/userhistory.php"
+	ptpActionUnregistered  = "unregistered"
+	ptpResponseTypeJSON    = "json"
+)
+
 type PTPConfig struct {
 	User string `koanf:"api_user"`
 	Key  string `koanf:"api_key"`
 }
 
 type PTP struct {
-	cfg     PTPConfig
-	http    *http.Client
-	headers map[string]string
-	log     *logrus.Entry
+	cfg                  PTPConfig
+	http                 *http.Client
+	headers              map[string]string
+	log                  *logrus.Entry
+	unregisteredCache    map[string]bool
+	unregisteredFetched  bool
+	unregisteredCacheMux sync.RWMutex
+	apiError             bool
 }
 
 func NewPTP(c PTPConfig) *PTP {
@@ -37,7 +49,8 @@ func NewPTP(c PTPConfig) *PTP {
 			"ApiUser": c.User,
 			"ApiKey":  c.Key,
 		},
-		log: l,
+		log:               l,
+		unregisteredCache: make(map[string]bool),
 	}
 }
 
@@ -46,38 +59,83 @@ func (c *PTP) Name() string {
 }
 
 func (c *PTP) Check(host string) bool {
-	return strings.Contains(host, "passthepopcorn.me")
+	return strings.Contains(host, ptpDomain)
+}
+
+func (c *PTP) fetchUnregisteredTorrents(ctx context.Context) error {
+	type unregisteredResponse struct {
+		Total        int `json:"Total"`
+		Page         int `json:"Page"`
+		Pages        int `json:"Pages"`
+		Unregistered []struct {
+			InfoHash string `json:"InfoHash"`
+		} `json:"Unregistered"`
+	}
+
+	c.log.Trace("Querying PTP API for all unregistered torrents")
+
+	requestURL, err := httputils.URLWithQuery("https://"+ptpDomain+ptpUserHistoryEndpoint, url.Values{
+		"action": []string{ptpActionUnregistered},
+		"type":   []string{ptpResponseTypeJSON},
+	})
+	if err != nil {
+		return fmt.Errorf("creating request URL: %w", err)
+	}
+
+	var resp *unregisteredResponse
+	err = httputils.MakeAPIRequest(ctx, c.http, http.MethodGet, requestURL, nil, c.headers, &resp)
+	if err != nil {
+		c.apiError = true
+		return fmt.Errorf("making api request: %w", err)
+	}
+
+	// validate response structure
+	if resp == nil {
+		c.apiError = true
+		return fmt.Errorf("received nil response from API")
+	}
+
+	c.unregisteredCache = make(map[string]bool)
+	for _, unreg := range resp.Unregistered {
+		c.unregisteredCache[strings.ToUpper(unreg.InfoHash)] = true
+	}
+
+	c.log.Debugf("Cached %d unregistered torrents from PTP", len(c.unregisteredCache))
+	return nil
 }
 
 func (c *PTP) IsUnregistered(ctx context.Context, torrent *Torrent) (error, bool) {
-	type response struct {
-		Result        string `json:"Result"`
-		ResultDetails string `json:"ResultDetails"`
+	c.unregisteredCacheMux.Lock()
+	if !c.unregisteredFetched {
+		if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
+			c.log.Info("-----")
+			torrent.APIDividerPrinted = true
+		}
+
+		if err := c.fetchUnregisteredTorrents(ctx); err != nil {
+			// mark as fetched to prevent retrying on every torrent
+			c.unregisteredFetched = true
+			c.unregisteredCacheMux.Unlock()
+			c.log.Errorf("Failed to fetch unregistered torrents from PTP API: %v", err)
+			return nil, false
+		}
+		c.unregisteredFetched = true
+	}
+	c.unregisteredCacheMux.Unlock()
+
+	c.unregisteredCacheMux.RLock()
+	isUnregistered := c.unregisteredCache[strings.ToUpper(torrent.Hash)]
+	c.unregisteredCacheMux.RUnlock()
+
+	if isUnregistered {
+		c.log.Tracef("Torrent %s (hash: %s) found in unregistered cache", torrent.Name, torrent.Hash)
+	} else {
+		c.log.Tracef("Torrent %s (hash: %s) not found in unregistered cache", torrent.Name, torrent.Hash)
 	}
 
-	if c.log.Logger.IsLevelEnabled(logrus.DebugLevel) {
-		c.log.Info("-----")
-		torrent.APIDividerPrinted = true
-	}
-
-	c.log.Tracef("Querying PTP API for torrent: %s (hash: %s)", torrent.Name, torrent.Hash)
-
-	requestURL, err := httputils.URLWithQuery("https://passthepopcorn.me/torrents.php", url.Values{
-		"infohash": []string{torrent.Hash},
-	})
-	if err != nil {
-		return fmt.Errorf("creating request URL: %w", err), false
-	}
-
-	var resp *response
-	err = httputils.MakeAPIRequest(ctx, c.http, http.MethodGet, requestURL, nil, c.headers, &resp)
-	if err != nil {
-		return fmt.Errorf("making api request: %w", err), false
-	}
-
-	return nil, resp.Result == "ERROR" && resp.ResultDetails == "Unregistered Torrent"
+	return nil, isUnregistered
 }
 
 func (c *PTP) IsTrackerDown(_ *Torrent) (error, bool) {
-	return nil, false
+	return nil, c.apiError
 }

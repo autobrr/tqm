@@ -108,6 +108,7 @@ var (
 		"host not found",
 		"offline",
 		"your request could not be processed, please try again later",
+		"unable to process your request",
 		"<none>",
 	}
 
@@ -120,29 +121,32 @@ var (
 
 type Torrent struct {
 	// torrent
-	Hash            string   `json:"Hash"`
-	Name            string   `json:"Name"`
-	Path            string   `json:"Path"`
-	TotalBytes      int64    `json:"TotalBytes"`
-	DownloadedBytes int64    `json:"DownloadedBytes"`
-	State           string   `json:"State"`
-	Files           []string `json:"Files"`
-	Tags            []string `json:"Tags"`
-	Downloaded      bool     `json:"Downloaded"`
-	Seeding         bool     `json:"Seeding"`
-	Ratio           float32  `json:"Ratio"`
-	AddedSeconds    int64    `json:"AddedSeconds"`
-	AddedHours      float32  `json:"AddedHours"`
-	AddedDays       float32  `json:"AddedDays"`
-	SeedingSeconds  int64    `json:"SeedingSeconds"`
-	SeedingHours    float32  `json:"SeedingHours"`
-	SeedingDays     float32  `json:"SeedingDays"`
-	Label           string   `json:"Label"`
-	Seeds           int64    `json:"Seeds"`
-	Peers           int64    `json:"Peers"`
-	IsPrivate       bool     `json:"IsPrivate"`
-	IsPublic        bool     `json:"IsPublic"`
-	UpLimit         int64    `json:"UpLimit,omitempty"`
+	Hash                string   `json:"Hash"`
+	Name                string   `json:"Name"`
+	Path                string   `json:"Path"`
+	TotalBytes          int64    `json:"TotalBytes"`
+	DownloadedBytes     int64    `json:"DownloadedBytes"`
+	State               string   `json:"State"`
+	Files               []string `json:"Files"`
+	Tags                []string `json:"Tags"`
+	Downloaded          bool     `json:"Downloaded"`
+	Seeding             bool     `json:"Seeding"`
+	Ratio               float32  `json:"Ratio"`
+	AddedSeconds        int64    `json:"AddedSeconds"`
+	AddedHours          float32  `json:"AddedHours"`
+	AddedDays           float32  `json:"AddedDays"`
+	SeedingSeconds      int64    `json:"SeedingSeconds"`
+	SeedingHours        float32  `json:"SeedingHours"`
+	SeedingDays         float32  `json:"SeedingDays"`
+	LastActivitySeconds int64    `json:"LastActivitySeconds"`
+	LastActivityHours   float32  `json:"LastActivityHours"`
+	LastActivityDays    float32  `json:"LastActivityDays"`
+	Label               string   `json:"Label"`
+	Seeds               int64    `json:"Seeds"`
+	Peers               int64    `json:"Peers"`
+	IsPrivate           bool     `json:"IsPrivate"`
+	IsPublic            bool     `json:"IsPublic"`
+	UpLimit             int64    `json:"UpLimit,omitempty"`
 
 	// set by client on GetCurrentFreeSpace
 	FreeSpaceGB  func() float64 `json:"-"`
