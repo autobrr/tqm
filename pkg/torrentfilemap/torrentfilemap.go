@@ -152,3 +152,104 @@ func (t *TorrentFileMap) Length() int {
 	defer t.mu.RUnlock()
 	return len(t.torrentFileMap)
 }
+
+// HasPathInCategory checks if a local file path belongs to any torrent.
+// For files: checks exact match against torrent file paths
+// For directories: checks if the path is a torrent save path
+func (t *TorrentFileMap) HasPathInCategory(localPath string, torrentPathMapping map[string]string, log interface{}) bool {
+	if val, found := t.pathCache.Load(localPath); found {
+		return val.(bool)
+	}
+
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	// Normalize the local path for comparison
+	normalizedLocalPath := strings.ToLower(strings.ReplaceAll(localPath, "\\", "/"))
+
+	// Debug logging
+	if log != nil {
+		if logger, ok := log.(interface{ Tracef(string, ...interface{}) }); ok {
+			logger.Tracef("Checking if path is tracked: %q", normalizedLocalPath)
+		}
+	}
+
+	// First check if it's a file path in the torrent file map
+	for torrentFilePath := range t.torrentFileMap {
+		normalizedTorrentPath := strings.ToLower(strings.ReplaceAll(torrentFilePath, "\\", "/"))
+
+		if normalizedTorrentPath == normalizedLocalPath {
+			if log != nil {
+				if logger, ok := log.(interface{ Tracef(string, ...interface{}) }); ok {
+					logger.Tracef("Found exact match for file: %q", torrentFilePath)
+				}
+			}
+			t.pathCache.Store(localPath, true)
+			return true
+		}
+
+		// Also check with path mappings applied
+		if len(torrentPathMapping) > 0 {
+			for mapFrom, mapTo := range torrentPathMapping {
+				mappedPath := strings.Replace(torrentFilePath, mapFrom, mapTo, 1)
+				normalizedMappedPath := strings.ToLower(strings.ReplaceAll(mappedPath, "\\", "/"))
+
+				if normalizedMappedPath == normalizedLocalPath {
+					if log != nil {
+						if logger, ok := log.(interface{ Tracef(string, ...interface{}) }); ok {
+							logger.Tracef("Found mapped match for file: %q -> %q", torrentFilePath, mappedPath)
+						}
+					}
+					t.pathCache.Store(localPath, true)
+					return true
+				}
+			}
+		}
+	}
+
+	// Check if it's a torrent save path (for directories)
+	for _, torrents := range t.torrentFileMap {
+		for _, torrent := range torrents {
+			normalizedTorrentPath := strings.ToLower(strings.ReplaceAll(torrent.Path, "\\", "/"))
+
+			if normalizedTorrentPath == normalizedLocalPath {
+				if log != nil {
+					if logger, ok := log.(interface{ Tracef(string, ...interface{}) }); ok {
+						logger.Tracef("Found match for torrent save path: %q", torrent.Path)
+					}
+				}
+				t.pathCache.Store(localPath, true)
+				return true
+			}
+
+			// Also check with path mappings applied to torrent path
+			if len(torrentPathMapping) > 0 {
+				for mapFrom, mapTo := range torrentPathMapping {
+					mappedPath := strings.Replace(torrent.Path, mapFrom, mapTo, 1)
+					normalizedMappedPath := strings.ToLower(strings.ReplaceAll(mappedPath, "\\", "/"))
+
+					if normalizedMappedPath == normalizedLocalPath {
+						if log != nil {
+							if logger, ok := log.(interface{ Tracef(string, ...interface{}) }); ok {
+								logger.Tracef("Found mapped match for torrent save path: %q -> %q", torrent.Path, mappedPath)
+							}
+						}
+						t.pathCache.Store(localPath, true)
+						return true
+					}
+				}
+			}
+		}
+		// Only check the first torrent since they should all have the same Path for the same hash
+		break
+	}
+
+	if log != nil {
+		if logger, ok := log.(interface{ Tracef(string, ...interface{}) }); ok {
+			logger.Tracef("No match found for: %q", normalizedLocalPath)
+		}
+	}
+
+	t.pathCache.Store(localPath, false)
+	return false
+}
