@@ -436,3 +436,166 @@ func TestTorrent_IsUnregistered_PerTrackerOverrides(t *testing.T) {
 	// Reset to default for other tests
 	InitializeTrackerStatuses(nil)
 }
+
+func TestTorrent_TagsSlice(t *testing.T) {
+	tests := []struct {
+		name        string
+		tags        map[string]struct{}
+		wantLength  int
+		wantContain []string
+	}{
+		{
+			name:        "empty tags",
+			tags:        map[string]struct{}{},
+			wantLength:  0,
+			wantContain: []string{},
+		},
+		{
+			name:        "single tag",
+			tags:        map[string]struct{}{"tag1": {}},
+			wantLength:  1,
+			wantContain: []string{"tag1"},
+		},
+		{
+			name:        "multiple tags",
+			tags:        map[string]struct{}{"tag1": {}, "tag2": {}, "tag3": {}},
+			wantLength:  3,
+			wantContain: []string{"tag1", "tag2", "tag3"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			torrent := &Torrent{Tags: tt.tags}
+			result := torrent.TagsSlice()
+
+			// Check length
+			assert.Len(t, result, tt.wantLength)
+
+			// Check all expected tags are present
+			for _, tag := range tt.wantContain {
+				assert.Contains(t, result, tag)
+			}
+		})
+	}
+}
+
+func TestTorrent_HasAllTags(t *testing.T) {
+	tests := []struct {
+		name        string
+		torrentTags map[string]struct{}
+		checkTags   []string
+		want        bool
+	}{
+		{
+			name:        "has all tags",
+			torrentTags: map[string]struct{}{"tag1": {}, "tag2": {}, "tag3": {}},
+			checkTags:   []string{"tag1", "tag2"},
+			want:        true,
+		},
+		{
+			name:        "missing one tag",
+			torrentTags: map[string]struct{}{"tag1": {}, "tag2": {}},
+			checkTags:   []string{"tag1", "tag3"},
+			want:        false,
+		},
+		{
+			name:        "empty torrent tags",
+			torrentTags: map[string]struct{}{},
+			checkTags:   []string{"tag1"},
+			want:        false,
+		},
+		{
+			name:        "check empty tags",
+			torrentTags: map[string]struct{}{"tag1": {}},
+			checkTags:   []string{},
+			want:        true,
+		},
+		{
+			name:        "exact match",
+			torrentTags: map[string]struct{}{"tag1": {}},
+			checkTags:   []string{"tag1"},
+			want:        true,
+		},
+		{
+			name:        "case sensitive - different case no match",
+			torrentTags: map[string]struct{}{"cross-seed": {}, "keep-temp": {}},
+			checkTags:   []string{"Cross-Seed", "Keep-Temp"},
+			want:        false,
+		},
+		{
+			name:        "case sensitive - mixed tags",
+			torrentTags: map[string]struct{}{"Seeding-B": {}, "tag2": {}},
+			checkTags:   []string{"Seeding-B", "tag2"},
+			want:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			torrent := &Torrent{Tags: tt.torrentTags}
+			result := torrent.HasAllTags(tt.checkTags...)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+func TestTorrent_HasAnyTag(t *testing.T) {
+	tests := []struct {
+		name        string
+		torrentTags map[string]struct{}
+		checkTags   []string
+		want        bool
+	}{
+		{
+			name:        "has one of multiple",
+			torrentTags: map[string]struct{}{"tag1": {}, "tag2": {}},
+			checkTags:   []string{"tag2", "tag3"},
+			want:        true,
+		},
+		{
+			name:        "has none",
+			torrentTags: map[string]struct{}{"tag1": {}},
+			checkTags:   []string{"tag2", "tag3"},
+			want:        false,
+		},
+		{
+			name:        "empty torrent tags",
+			torrentTags: map[string]struct{}{},
+			checkTags:   []string{"tag1"},
+			want:        false,
+		},
+		{
+			name:        "check empty tags",
+			torrentTags: map[string]struct{}{"tag1": {}},
+			checkTags:   []string{},
+			want:        false,
+		},
+		{
+			name:        "has all",
+			torrentTags: map[string]struct{}{"tag1": {}, "tag2": {}, "tag3": {}},
+			checkTags:   []string{"tag1", "tag2"},
+			want:        true,
+		},
+		{
+			name:        "case sensitive - no match with different case",
+			torrentTags: map[string]struct{}{"cross-seed": {}, "keep-temp": {}},
+			checkTags:   []string{"Cross-Seed", "missing-tag"},
+			want:        false,
+		},
+		{
+			name:        "case sensitive - exact match",
+			torrentTags: map[string]struct{}{"Seeding-B": {}},
+			checkTags:   []string{"Seeding-B"},
+			want:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			torrent := &Torrent{Tags: tt.torrentTags}
+			result := torrent.HasAnyTag(tt.checkTags...)
+			assert.Equal(t, tt.want, result)
+		})
+	}
+}
