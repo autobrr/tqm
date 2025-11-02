@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sort"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/autobrr/tqm/pkg/client"
@@ -19,6 +21,12 @@ import (
 	"github.com/autobrr/tqm/pkg/paths"
 	"github.com/autobrr/tqm/pkg/torrentfilemap"
 	"github.com/autobrr/tqm/pkg/tracker"
+)
+
+var (
+	orphanCategories        []string
+	orphanExcludeCategories []string
+	orphanUseCategoryPaths  bool
 )
 
 var orphanCmd = &cobra.Command{
@@ -92,6 +100,21 @@ var orphanCmd = &cobra.Command{
 			log.Debugf("Connected to client")
 		}
 
+		// Use category-aware orphan detection if enabled
+		if orphanUseCategoryPaths {
+			// Load label path map first
+			if err := c.LoadLabelPathMap(ctx); err != nil {
+				log.WithError(err).Fatal("Failed loading label path map")
+			}
+			processCategoryAwareOrphans(ctx, c, clientDownloadPathMapping, log, noti, clientName, start)
+			return
+		}
+
+		// Legacy mode: load label path map and get torrents
+		if err := c.LoadLabelPathMap(ctx); err != nil {
+			log.WithError(err).Fatal("Failed loading label path map")
+		}
+
 		// retrieve torrents
 		torrents, err := c.GetTorrents(ctx)
 		if err != nil {
@@ -100,8 +123,14 @@ var orphanCmd = &cobra.Command{
 			log.Infof("Retrieved %d torrents", len(torrents))
 		}
 
+		// Legacy mode: filter torrents by category if specified
+		filteredTorrents := filterTorrentsByCategory(torrents, orphanCategories, orphanExcludeCategories, log)
+		if len(filteredTorrents) != len(torrents) {
+			log.Infof("Filtered to %d torrents based on category filters", len(filteredTorrents))
+		}
+
 		// create map of files associated with torrents (via hash)
-		tfm := torrentfilemap.New(torrents)
+		tfm := torrentfilemap.New(filteredTorrents)
 		log.Infof("Mapped torrents to %d unique torrent files", tfm.Length())
 
 		// get all paths in client download location
@@ -318,6 +347,437 @@ var orphanCmd = &cobra.Command{
 	},
 }
 
+// processCategoryAwareOrphans checks each category's save path for orphaned files
+func processCategoryAwareOrphans(ctx context.Context, c client.Interface,
+	clientDownloadPathMapping map[string]string, log *logrus.Entry, noti notification.Sender, clientName string, start time.Time) {
+
+	labelPathMap := c.LabelPathMap()
+	if len(labelPathMap) == 0 {
+		log.Warn("No categories found in client, nothing to check")
+		return
+	}
+
+	log.Infof("Found %d categories to check", len(labelPathMap))
+
+	filter, err := getClientFilter(config.Config.Clients[clientName])
+	if err != nil {
+		log.WithError(err).Fatal("Failed to get client filter")
+	}
+
+	if filter == nil {
+		log.Fatal("Defined filter is empty")
+	}
+
+	gracePeriod := 10 * time.Minute
+	if filter.Orphan.GracePeriod > 0 {
+		gracePeriod = filter.Orphan.GracePeriod
+	}
+	log.Debugf("Using grace period: %v", gracePeriod)
+
+	// PHASE 1: Collect all filesystem data from all categories
+	log.Info("==========")
+	log.Info("Phase 1: Collecting filesystem data from all categories...")
+
+	type categoryData struct {
+		name         string
+		path         string
+		filePaths    map[string]int64
+		folderPaths  map[string]int64
+		torrentCount int
+	}
+
+	var categoriesToProcess []categoryData
+	allFilePaths := make(map[string]int64)
+	allFolderPaths := make(map[string]int64)
+
+	for categoryName, categoryPath := range labelPathMap {
+		// Skip categories based on include/exclude filters
+		if len(orphanCategories) > 0 {
+			found := false
+			for _, cat := range orphanCategories {
+				if strings.EqualFold(categoryName, cat) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				log.Debugf("Skipping category %q (not in include list)", categoryName)
+				continue
+			}
+		}
+
+		if len(orphanExcludeCategories) > 0 {
+			excluded := false
+			for _, cat := range orphanExcludeCategories {
+				if strings.EqualFold(categoryName, cat) {
+					excluded = true
+					break
+				}
+			}
+			if excluded {
+				log.Debugf("Skipping category %q (in exclude list)", categoryName)
+				continue
+			}
+		}
+
+		log.Infof("Scanning category: %q with path: %q", categoryName, categoryPath)
+
+		// Check if category path exists
+		if _, err := os.Stat(categoryPath); os.IsNotExist(err) {
+			log.Warnf("Category path does not exist: %q", categoryPath)
+			continue
+		}
+
+		// Get all paths in category location
+		localPaths, _ := paths.InFolder(categoryPath, true, true, nil)
+		log.Debugf("Retrieved %d paths from category path", len(localPaths))
+
+		// Sort paths
+		localFilePaths := make(map[string]int64)
+		localFolderPaths := make(map[string]int64)
+
+		for _, p := range localPaths {
+			if p.IsDir {
+				if strings.EqualFold(p.RealPath, categoryPath) {
+					continue
+				}
+				localFolderPaths[p.RealPath] = p.Size
+				allFolderPaths[p.RealPath] = p.Size
+			} else {
+				localFilePaths[p.RealPath] = p.Size
+				allFilePaths[p.RealPath] = p.Size
+			}
+		}
+
+		log.Infof("Category %q: %d files / %d folders on disk", categoryName, len(localFilePaths), len(localFolderPaths))
+
+		categoriesToProcess = append(categoriesToProcess, categoryData{
+			name:        categoryName,
+			path:        categoryPath,
+			filePaths:   localFilePaths,
+			folderPaths: localFolderPaths,
+		})
+	}
+
+	if len(categoriesToProcess) == 0 {
+		log.Warn("No categories to process after filtering")
+		return
+	}
+
+	log.Infof("Collected data from %d categories: %d total unique files, %d total unique folders",
+		len(categoriesToProcess), len(allFilePaths), len(allFolderPaths))
+
+	// PHASE 2: Get all torrents once
+	log.Info("==========")
+	log.Info("Phase 2: Fetching torrent data from client...")
+	allTorrents, err := c.GetTorrents(ctx)
+	if err != nil {
+		log.WithError(err).Fatal("Failed retrieving torrents")
+	}
+	log.Infof("Retrieved %d torrents from client", len(allTorrents))
+
+	// Count torrents per category for informational purposes
+	for i := range categoriesToProcess {
+		count := 0
+		for _, torrent := range allTorrents {
+			if strings.EqualFold(torrent.Label, categoriesToProcess[i].name) {
+				count++
+			}
+		}
+		categoriesToProcess[i].torrentCount = count
+		log.Infof("Category %q has %d active torrents", categoriesToProcess[i].name, count)
+
+		if count == 0 && (len(categoriesToProcess[i].filePaths) > 0 || len(categoriesToProcess[i].folderPaths) > 0) {
+			log.Warnf("Category %q has files/folders but no torrents - use with caution!", categoriesToProcess[i].name)
+		}
+	}
+
+	// Create file map for ALL torrents
+	tfm := torrentfilemap.New(allTorrents)
+	log.Infof("Mapped %d unique torrent files from all torrents", tfm.Length())
+
+	// PHASE 3: Process orphans for each category
+	log.Info("==========")
+	log.Info("Phase 3: Processing orphans...")
+
+	var (
+		totalRemovedFiles   uint32
+		totalRemovedFolders uint32
+		totalIgnoredFiles   uint32
+		totalIgnoredFolders uint32
+		totalRemoveFailures uint32
+		totalReclaimedBytes uint64
+		allFields           []notification.Field
+	)
+
+	for _, catData := range categoriesToProcess {
+		log.Info("----------")
+		log.Infof("Processing category: %q", catData.name)
+
+		// Process orphaned files
+		removedFiles, ignoredFiles, removeFailures, reclaimedBytes, fields := processOrphanFiles(
+			catData.filePaths, tfm, clientDownloadPathMapping, filter, gracePeriod, log, noti)
+
+		totalRemovedFiles += removedFiles
+		totalIgnoredFiles += ignoredFiles
+		totalRemoveFailures += removeFailures
+		totalReclaimedBytes += reclaimedBytes
+		allFields = append(allFields, fields...)
+
+		// Process orphaned folders
+		removedFolders, ignoredFolders, folderFailures, folderFields := processOrphanFolders(
+			catData.folderPaths, tfm, clientDownloadPathMapping, filter, catData.path, log, noti)
+
+		totalRemovedFolders += removedFolders
+		totalIgnoredFolders += ignoredFolders
+		totalRemoveFailures += folderFailures
+		allFields = append(allFields, folderFields...)
+
+		log.Infof("Category %q: removed %d files, %d folders", catData.name, removedFiles, removedFolders)
+	}
+
+	log.Info("==========")
+	log.WithField("reclaimed_space", humanize.IBytes(totalReclaimedBytes)).
+		Infof("Total removed orphans: %d files, %d folders and %d failures. Ignored %d files and %d folders",
+			totalRemovedFiles, totalRemovedFolders, totalRemoveFailures, totalIgnoredFiles, totalIgnoredFolders)
+
+	if !noti.CanSend() {
+		log.Debug("Notifications disabled, skipping...")
+		return
+	}
+
+	sendErr := noti.Send(
+		"Orphans (Category-Aware)",
+		fmt.Sprintf("Removed **%d** orphaned files and **%d** orphaned folders | Total reclaimed **%s**",
+			totalRemovedFiles, totalRemovedFolders, humanize.IBytes(totalReclaimedBytes)),
+		clientName,
+		time.Since(start),
+		allFields,
+		flagDryRun,
+	)
+	if sendErr != nil {
+		log.WithError(sendErr).Error("Failed sending notification")
+	}
+}
+
+// processOrphanFiles processes orphaned files and returns stats
+func processOrphanFiles(localFilePaths map[string]int64, tfm *torrentfilemap.TorrentFileMap,
+	clientDownloadPathMapping map[string]string, filter *config.FilterConfiguration,
+	gracePeriod time.Duration, log *logrus.Entry, noti notification.Sender) (
+	removedFiles uint32, ignoredFiles uint32, removeFailures uint32, reclaimedBytes uint64, fields []notification.Field) {
+
+	const (
+		maxWorkers = 10
+		batchSize  = 50
+	)
+
+	var (
+		wg                   sync.WaitGroup
+		mu                   sync.Mutex
+		removedFilesAtomic   atomic.Uint32
+		ignoredFilesAtomic   atomic.Uint32
+		removeFailuresAtomic atomic.Uint32
+		reclaimedBytesAtomic atomic.Uint64
+		fieldsLocal          []notification.Field
+	)
+
+	processInBatches(localFilePaths, maxWorkers, batchSize, func(localPath string, localPathSize int64) {
+		defer wg.Done()
+
+		// Double-check the file is still an orphan before removing
+		// Use HasPathInCategory which checks against torrent.Files (which contain absolute paths)
+		if tfm.HasPathInCategory(localPath, clientDownloadPathMapping, log) {
+			mu.Lock()
+			log.Debugf("File is tracked by a torrent, skipping: %q", localPath)
+			mu.Unlock()
+			return
+		}
+
+		mu.Lock()
+		log.Debugf("File NOT found in torrent map: %q", localPath)
+		mu.Unlock()
+
+		if paths.IsIgnored(localPath, filter.Orphan.IgnorePaths) {
+			mu.Lock()
+			log.Debugf("File matches ignore list, skipping: %q", localPath)
+			mu.Unlock()
+			ignoredFilesAtomic.Add(1)
+			return
+		}
+
+		fileInfo, err := os.Stat(localPath)
+		if err != nil {
+			mu.Lock()
+			log.WithError(err).Warnf("Could not stat file, skipping: %q", localPath)
+			mu.Unlock()
+			return
+		}
+
+		if time.Since(fileInfo.ModTime()) < gracePeriod {
+			mu.Lock()
+			log.Debugf("File within grace period, skipping: %q", localPath)
+			mu.Unlock()
+			return
+		}
+
+		mu.Lock()
+		log.Infof("Removing orphan file: %q", localPath)
+		mu.Unlock()
+
+		removed := true
+
+		if flagDryRun {
+			mu.Lock()
+			log.Warn("Dry-run enabled, skipping remove...")
+			mu.Unlock()
+		} else {
+			if err := os.Remove(localPath); err != nil {
+				mu.Lock()
+				log.WithError(err).Errorf("Failed removing orphan file")
+				mu.Unlock()
+				removeFailuresAtomic.Add(1)
+				removed = false
+			} else {
+				mu.Lock()
+				log.Info("Removed")
+				mu.Unlock()
+			}
+		}
+
+		if removed {
+			reclaimedBytesAtomic.Add(uint64(localPathSize))
+			removedFilesAtomic.Add(1)
+
+			mu.Lock()
+			fieldsLocal = append(fieldsLocal, noti.BuildField(notification.ActionOrphan, notification.BuildOptions{
+				Orphan:     localPath,
+				OrphanSize: localPathSize,
+				IsFile:     true,
+			}))
+			mu.Unlock()
+		}
+	}, &wg)
+
+	wg.Wait()
+
+	return removedFilesAtomic.Load(), ignoredFilesAtomic.Load(), removeFailuresAtomic.Load(),
+		reclaimedBytesAtomic.Load(), fieldsLocal
+}
+
+// processOrphanFolders processes orphaned folders and returns stats
+func processOrphanFolders(localFolderPaths map[string]int64, tfm *torrentfilemap.TorrentFileMap,
+	clientDownloadPathMapping map[string]string, filter *config.FilterConfiguration,
+	categoryPath string, log *logrus.Entry, noti notification.Sender) (
+	removedFolders uint32, ignoredFolders uint32, removeFailures uint32, fields []notification.Field) {
+
+	orphanFolderPaths := make([]string, 0, len(localFolderPaths))
+	for localPath := range localFolderPaths {
+		// Use HasPathInCategory which properly constructs full paths from torrent.Path + torrent.Files
+		if tfm.HasPathInCategory(localPath, clientDownloadPathMapping, log) {
+			continue
+		}
+
+		if paths.IsIgnored(localPath, filter.Orphan.IgnorePaths) {
+			log.Debugf("Folder matches ignore list, skipping: %q", localPath)
+			ignoredFolders++
+			continue
+		}
+
+		orphanFolderPaths = append(orphanFolderPaths, localPath)
+	}
+
+	// Sort by depth (deepest first)
+	sort.Slice(orphanFolderPaths, func(i, j int) bool {
+		return len(orphanFolderPaths[i]) > len(orphanFolderPaths[j])
+	})
+
+	log.Debugf("Processing %d potential orphan folders", len(orphanFolderPaths))
+
+	for _, localPath := range orphanFolderPaths {
+		removed := false
+
+		empty, err := paths.IsDirEmpty(localPath)
+		if err != nil {
+			log.WithError(err).Warnf("Could not check if directory is empty: %q", localPath)
+		} else if !empty {
+			log.Debugf("Orphan directory not empty, skipping: %q", localPath)
+		} else {
+			log.Infof("Removing empty orphan directory: %q", localPath)
+			if flagDryRun {
+				log.Warn("Dry-run enabled, skipping remove...")
+				removed = true
+			} else {
+				if err := os.Remove(localPath); err != nil {
+					log.WithError(err).Errorf("Failed removing empty orphan directory")
+					removeFailures++
+				} else {
+					log.Info("Removed")
+					removed = true
+				}
+			}
+		}
+
+		if removed {
+			fields = append(fields, noti.BuildField(notification.ActionOrphan, notification.BuildOptions{
+				Orphan:     localPath,
+				OrphanSize: 0,
+				IsFile:     false,
+			}))
+			removedFolders++
+		}
+	}
+
+	return removedFolders, ignoredFolders, removeFailures, fields
+}
+
+// filterTorrentsByCategory filters torrents based on category include/exclude lists
+func filterTorrentsByCategory(torrents map[string]config.Torrent, includeCategories, excludeCategories []string, log *logrus.Entry) map[string]config.Torrent {
+	// if no filters specified, return all torrents
+	if len(includeCategories) == 0 && len(excludeCategories) == 0 {
+		return torrents
+	}
+
+	filtered := make(map[string]config.Torrent)
+
+	for hash, torrent := range torrents {
+		category := torrent.Label
+
+		// check exclude list first
+		if len(excludeCategories) > 0 {
+			excluded := false
+			for _, excludeCat := range excludeCategories {
+				if strings.EqualFold(category, excludeCat) {
+					log.Tracef("Excluding torrent %q with category %q", torrent.Name, category)
+					excluded = true
+					break
+				}
+			}
+			if excluded {
+				continue
+			}
+		}
+
+		// check include list
+		if len(includeCategories) > 0 {
+			included := false
+			for _, includeCat := range includeCategories {
+				if strings.EqualFold(category, includeCat) {
+					included = true
+					break
+				}
+			}
+			if !included {
+				log.Tracef("Skipping torrent %q with category %q (not in include list)", torrent.Name, category)
+				continue
+			}
+		}
+
+		filtered[hash] = torrent
+	}
+
+	return filtered
+}
+
 // processInBatches processes a map in batches using a worker pool
 func processInBatches(items map[string]int64, maxWorkers int, batchSize int,
 	processFn func(string, int64), wg *sync.WaitGroup) {
@@ -360,4 +820,8 @@ func processInBatches(items map[string]int64, maxWorkers int, batchSize int,
 
 func init() {
 	rootCmd.AddCommand(orphanCmd)
+
+	orphanCmd.Flags().BoolVar(&orphanUseCategoryPaths, "use-category-paths", false, "Check each category's save path for orphans (qBittorrent only)")
+	orphanCmd.Flags().StringSliceVar(&orphanCategories, "category", nil, "Only check specific categories (works with --use-category-paths or legacy mode)")
+	orphanCmd.Flags().StringSliceVar(&orphanExcludeCategories, "exclude-category", nil, "Exclude specific categories from orphan check")
 }
