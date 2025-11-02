@@ -6,12 +6,12 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/bobesa/go-domain-util/domainutil"
 	"github.com/sirupsen/logrus"
 
-	"github.com/autobrr/tqm/pkg/evaluate"
 	"github.com/autobrr/tqm/pkg/logger"
 	"github.com/autobrr/tqm/pkg/regex"
 	"github.com/autobrr/tqm/pkg/tracker"
@@ -121,32 +121,32 @@ var (
 
 type Torrent struct {
 	// torrent
-	Hash                string   `json:"Hash"`
-	Name                string   `json:"Name"`
-	Path                string   `json:"Path"`
-	TotalBytes          int64    `json:"TotalBytes"`
-	DownloadedBytes     int64    `json:"DownloadedBytes"`
-	State               string   `json:"State"`
-	Files               []string `json:"Files"`
-	Tags                []string `json:"Tags"`
-	Downloaded          bool     `json:"Downloaded"`
-	Seeding             bool     `json:"Seeding"`
-	Ratio               float32  `json:"Ratio"`
-	AddedSeconds        int64    `json:"AddedSeconds"`
-	AddedHours          float32  `json:"AddedHours"`
-	AddedDays           float32  `json:"AddedDays"`
-	SeedingSeconds      int64    `json:"SeedingSeconds"`
-	SeedingHours        float32  `json:"SeedingHours"`
-	SeedingDays         float32  `json:"SeedingDays"`
-	LastActivitySeconds int64    `json:"LastActivitySeconds"`
-	LastActivityHours   float32  `json:"LastActivityHours"`
-	LastActivityDays    float32  `json:"LastActivityDays"`
-	Label               string   `json:"Label"`
-	Seeds               int64    `json:"Seeds"`
-	Peers               int64    `json:"Peers"`
-	IsPrivate           bool     `json:"IsPrivate"`
-	IsPublic            bool     `json:"IsPublic"`
-	UpLimit             int64    `json:"UpLimit,omitempty"`
+	Hash                string              `json:"Hash"`
+	Name                string              `json:"Name"`
+	Path                string              `json:"Path"`
+	TotalBytes          int64               `json:"TotalBytes"`
+	DownloadedBytes     int64               `json:"DownloadedBytes"`
+	State               string              `json:"State"`
+	Files               []string            `json:"Files"`
+	Tags                map[string]struct{} `json:"Tags"`
+	Downloaded          bool                `json:"Downloaded"`
+	Seeding             bool                `json:"Seeding"`
+	Ratio               float32             `json:"Ratio"`
+	AddedSeconds        int64               `json:"AddedSeconds"`
+	AddedHours          float32             `json:"AddedHours"`
+	AddedDays           float32             `json:"AddedDays"`
+	SeedingSeconds      int64               `json:"SeedingSeconds"`
+	SeedingHours        float32             `json:"SeedingHours"`
+	SeedingDays         float32             `json:"SeedingDays"`
+	LastActivitySeconds int64               `json:"LastActivitySeconds"`
+	LastActivityHours   float32             `json:"LastActivityHours"`
+	LastActivityDays    float32             `json:"LastActivityDays"`
+	Label               string              `json:"Label"`
+	Seeds               int64               `json:"Seeds"`
+	Peers               int64               `json:"Peers"`
+	IsPrivate           bool                `json:"IsPrivate"`
+	IsPublic            bool                `json:"IsPublic"`
+	UpLimit             int64               `json:"UpLimit,omitempty"`
 
 	// set by client on GetCurrentFreeSpace
 	FreeSpaceGB  func() float64 `json:"-"`
@@ -256,14 +256,14 @@ func InitializeTrackerStatuses(perTrackerOverrides map[string][]string) {
 	effectiveUnregisteredStatuses = make(map[string]map[string]struct{}, len(perTrackerOverrides))
 	if len(perTrackerOverrides) > 0 {
 		log.Debugf("Processing %d per-tracker unregistered status overrides", len(perTrackerOverrides))
-		for tracker, statuses := range perTrackerOverrides {
-			trackerLower := strings.ToLower(strings.TrimSpace(tracker))
+		for trackerOverride, statuses := range perTrackerOverrides {
+			trackerLower := strings.ToLower(strings.TrimSpace(trackerOverride))
 			statusMap := make(map[string]struct{}, len(statuses))
 			for _, status := range statuses {
 				statusMap[strings.ToLower(strings.TrimSpace(status))] = struct{}{}
 			}
 			effectiveUnregisteredStatuses[trackerLower] = statusMap
-			log.Debugf("Set %d custom unregistered statuses for tracker: %s", len(statusMap), tracker)
+			log.Debugf("Set %d custom unregistered statuses for tracker: %s", len(statusMap), trackerOverride)
 		}
 	} else {
 		log.Debug("No per-tracker unregistered status overrides provided, using defaults for all.")
@@ -398,23 +398,34 @@ func (t *Torrent) IsUnregistered(ctx context.Context) bool {
 }
 
 func (t *Torrent) HasAllTags(tags ...string) bool {
-	for _, v := range tags {
-		if !evaluate.StringSliceContains(t.Tags, v, true) {
+	for _, tag := range tags {
+		if _, exists := t.Tags[tag]; !exists {
 			return false
 		}
 	}
-
 	return true
 }
 
 func (t *Torrent) HasAnyTag(tags ...string) bool {
-	for _, v := range tags {
-		if evaluate.StringSliceContains(t.Tags, v, true) {
+	for _, tag := range tags {
+		if _, exists := t.Tags[tag]; exists {
 			return true
 		}
 	}
-
 	return false
+}
+
+// TagsSlice converts the internal tags map to a sorted slice for display/API calls
+func (t *Torrent) TagsSlice() []string {
+	if len(t.Tags) == 0 {
+		return []string{}
+	}
+	tags := make([]string, 0, len(t.Tags))
+	for tag := range t.Tags {
+		tags = append(tags, tag)
+	}
+	sort.Strings(tags)
+	return tags
 }
 
 func (t *Torrent) HasMissingFiles() bool {

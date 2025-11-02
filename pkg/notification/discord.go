@@ -491,7 +491,7 @@ func (d *discordSender) buildRetagField(torrent config.Torrent, newTags []string
 		return fmt.Sprintf("%d KiB/s", limit)
 	}
 
-	oldTags := strings.Join(torrent.Tags, ", ")
+	oldTags := strings.Join(torrent.TagsSlice(), ", ")
 	newTagsStr := strings.Join(newTags, ", ")
 	oldUpLimit := limitStr(torrent.UpLimit)
 	newUpLimitStr := limitStr(newUpLimit)
@@ -573,10 +573,10 @@ func (d *discordSender) buildGenericField(torrent config.Torrent, reason string)
 		})
 	}
 
-	if len(torrent.Tags) > 0 && strings.Join(torrent.Tags, ", ") != "" {
+	if len(torrent.Tags) > 0 && strings.Join(torrent.TagsSlice(), ", ") != "" {
 		inlineFields = append(inlineFields, DiscordEmbedsField{
 			Name:   "Tags",
-			Value:  escapeDiscordMarkdown(strings.Join(torrent.Tags, ", ")),
+			Value:  escapeDiscordMarkdown(strings.Join(torrent.TagsSlice(), ", ")),
 			Inline: true,
 		})
 	}
