@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,17 +18,6 @@ import (
 	"github.com/autobrr/tqm/pkg/notification"
 	"github.com/autobrr/tqm/pkg/torrentfilemap"
 )
-
-func removeSlice(slice []string, remove []string) []string {
-	for _, item := range remove {
-		for i, v := range slice {
-			if v == item {
-				slice = append(slice[:i], slice[i+1:]...)
-			}
-		}
-	}
-	return slice
-}
 
 // retag torrent that meet required filters
 func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagInterface, torrents map[string]config.Torrent, noti notification.Sender, client string, startTime time.Time) error {
@@ -60,20 +50,21 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 			continue
 		}
 
-		// Convert maps to slices for processing
-		var addTags []string
+		// Build final tags map
+		finalTags := make(map[string]struct{})
+
+		// Copy existing tags except those being removed
+		for tag := range t.Tags {
+			if _, shouldRemove := retagInfo.Remove[tag]; !shouldRemove {
+				finalTags[tag] = struct{}{}
+			}
+		}
+
+		// Add new tags
 		for tag := range retagInfo.Add {
-			addTags = append(addTags, tag)
+			finalTags[tag] = struct{}{}
 		}
 
-		var removeTags []string
-		for tag := range retagInfo.Remove {
-			removeTags = append(removeTags, tag)
-		}
-
-		// initialize with torrent values
-		finalTags := removeSlice(t.Tags, removeTags)
-		finalTags = append(finalTags, addTags...)
 		limitKb := t.UpLimit
 
 		// retag
@@ -81,9 +72,16 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 			log.Info("-----")
 		}
 
+		// Convert final tags map to slice for display and API calls
+		finalTagsSlice := make([]string, 0, len(finalTags))
+		for tag := range finalTags {
+			finalTagsSlice = append(finalTagsSlice, tag)
+		}
+		sort.Strings(finalTagsSlice)
+
 		var actionLogs []string
-		if len(addTags) > 0 || len(removeTags) > 0 {
-			actionLogs = append(actionLogs, fmt.Sprintf("Retagging to: [%s]", strings.Join(finalTags, ", ")))
+		if len(retagInfo.Add) > 0 || len(retagInfo.Remove) > 0 {
+			actionLogs = append(actionLogs, fmt.Sprintf("Retagging to: [%s]", strings.Join(finalTagsSlice, ", ")))
 		}
 		if retagInfo.UploadKb != nil {
 			limitKb = *retagInfo.UploadKb
@@ -96,20 +94,26 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 
 		log.Infof("Actions for: %q - %s", t.Name, strings.Join(actionLogs, " | "))
 		log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
-			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
+			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.TagsSlice(), ", "), t.TrackerName, t.TrackerStatus)
 
 		actionTaken := false
 		actionFailed := false
 
 		if !flagDryRun {
 			// apply tag changes
-			if err := c.SetTags(ctx, t.Hash, finalTags); err == nil {
-				log.Debugf("Set tags: %v", finalTags)
+			if err := c.SetTags(ctx, t.Hash, finalTagsSlice); err == nil {
+				log.Debugf("Set tags: %v", finalTagsSlice)
 				actionTaken = true
 			} else if errors.Is(err, qbittorrent.ErrUnsupportedVersion) {
 				log.Debug("Unsupported qBittorrent version, using AddTags and RemoveTags instead")
 
-				if len(addTags) > 0 {
+				// Convert Add map to slice
+				if len(retagInfo.Add) > 0 {
+					addTags := make([]string, 0, len(retagInfo.Add))
+					for tag := range retagInfo.Add {
+						addTags = append(addTags, tag)
+					}
+					sort.Strings(addTags)
 					if err := c.AddTags(ctx, t.Hash, addTags); err != nil {
 						log.WithError(err).Errorf("Failed adding tags %v to torrent: %+v", addTags, t)
 						actionFailed = true
@@ -118,7 +122,14 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 						actionTaken = true
 					}
 				}
-				if len(removeTags) > 0 && !actionFailed {
+
+				// Convert Remove map to slice
+				if len(retagInfo.Remove) > 0 && !actionFailed {
+					removeTags := make([]string, 0, len(retagInfo.Remove))
+					for tag := range retagInfo.Remove {
+						removeTags = append(removeTags, tag)
+					}
+					sort.Strings(removeTags)
 					if err := c.RemoveTags(ctx, t.Hash, removeTags); err != nil {
 						log.WithError(err).Errorf("Failed removing tags %v from torrent: %+v", removeTags, t)
 						actionFailed = true
@@ -128,7 +139,7 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 					}
 				}
 			} else {
-				log.WithError(err).Errorf("Failed setting tags %v for torrent: %+v", finalTags, t)
+				log.WithError(err).Errorf("Failed setting tags %v for torrent: %+v", finalTagsSlice, t)
 				actionFailed = true
 			}
 
@@ -161,7 +172,7 @@ func retagEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.TagI
 		if actionTaken || flagDryRun {
 			fields = append(fields, noti.BuildField(notification.ActionRetag, notification.BuildOptions{
 				Torrent:    t,
-				NewTags:    finalTags,
+				NewTags:    finalTagsSlice,
 				NewUpLimit: limitKb,
 			}))
 			retaggedTorrents++
@@ -231,7 +242,7 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 				// torrent file is not unique, files are contained within another torrent
 				// so we cannot safely change the label in-case of auto move
 				nonUniqueTorrents++
-				log.Warnf("Skipping non unique torrent | Name: %s / Label: %s / Tags: %s / Tracker: %s", t.Name, t.Label, strings.Join(t.Tags, ", "), t.TrackerName)
+				log.Warnf("Skipping non unique torrent | Name: %s / Label: %s / Tags: %s / Tracker: %s", t.Name, t.Label, strings.Join(t.TagsSlice(), ", "), t.TrackerName)
 				continue
 			}
 
@@ -249,7 +260,7 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 			log.Infof("Relabeling: %q - %s", t.Name, label)
 		}
 		log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
-			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
+			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.TagsSlice(), ", "), t.TrackerName, t.TrackerStatus)
 
 		if !flagDryRun {
 			if err := c.SetTorrentLabel(ctx, t.Hash, label, hardlink); err != nil {
@@ -345,7 +356,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		log.Debugf("Removal reason: %s", reason)
 		log.Debugf("isUnique: %t / isHardlinked: %t", isUnique, isHardlinked)
 		log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
-			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.Tags, ", "), t.TrackerName, t.TrackerStatus)
+			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.TagsSlice(), ", "), t.TrackerName, t.TrackerStatus)
 
 		// update the hardlink map before removing the torrent
 		hfm.RemoveByTorrent(*t)
@@ -471,13 +482,13 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 			if isHardlinked {
 				log.Info("-----")
 				log.Warnf("Skipping non-unique torrent (hardlinked) | Name: %s / Label: %s / Tags: %s / Tracker: %s",
-					t.Name, t.Label, strings.Join(t.Tags, ", "), t.TrackerName)
+					t.Name, t.Label, strings.Join(t.TagsSlice(), ", "), t.TrackerName)
 				hardlinkedCandidates[h] = t
 				candidateReasons[h] = reason
 			} else {
 				log.Info("-----")
 				log.Warnf("Skipping non-unique torrent (file overlap) | Name: %s / Label: %s / Tags: %s / Tracker: %s",
-					t.Name, t.Label, strings.Join(t.Tags, ", "), t.TrackerName)
+					t.Name, t.Label, strings.Join(t.TagsSlice(), ", "), t.TrackerName)
 				fileOverlapCandidates[h] = t
 				candidateReasons[h] = reason
 			}

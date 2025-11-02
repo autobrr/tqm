@@ -1,6 +1,7 @@
 package client
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/autobrr/go-qbittorrent"
@@ -236,6 +237,67 @@ func TestParseTrackerDomain(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := config.ParseTrackerDomain(tt.trackerHost)
 			assert.Equal(t, tt.expectedDomain, got)
+		})
+	}
+}
+
+func TestTagDeduplication(t *testing.T) {
+	tests := []struct {
+		name         string
+		tagsString   string
+		expectedTags map[string]struct{}
+	}{
+		{
+			name:         "no_duplicates",
+			tagsString:   "tag1, tag2, tag3",
+			expectedTags: map[string]struct{}{"tag1": {}, "tag2": {}, "tag3": {}},
+		},
+		{
+			name:         "with_duplicates",
+			tagsString:   "tag1, tag2, tag2, tag3",
+			expectedTags: map[string]struct{}{"tag1": {}, "tag2": {}, "tag3": {}},
+		},
+		{
+			name:         "real_world_case_seeding_b_duplicate",
+			tagsString:   "8d, cross-seed, keep-seed-2, seeding-b, seeding-b",
+			expectedTags: map[string]struct{}{"8d": {}, "cross-seed": {}, "keep-seed-2": {}, "seeding-b": {}},
+		},
+		{
+			name:         "multiple_duplicates",
+			tagsString:   "a, b, b, c, a, c",
+			expectedTags: map[string]struct{}{"a": {}, "b": {}, "c": {}},
+		},
+		{
+			name:         "all_same",
+			tagsString:   "tag, tag, tag",
+			expectedTags: map[string]struct{}{"tag": {}},
+		},
+		{
+			name:         "empty_string",
+			tagsString:   "",
+			expectedTags: map[string]struct{}{},
+		},
+		{
+			name:         "single_tag",
+			tagsString:   "only-one",
+			expectedTags: map[string]struct{}{"only-one": {}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate the tag parsing logic from GetTorrents
+			tags := make(map[string]struct{})
+			if tt.tagsString != "" {
+				for _, tag := range strings.Split(tt.tagsString, ", ") {
+					tags[tag] = struct{}{}
+				}
+			}
+
+			// Verify results - maps are equal
+			assert.Equal(t, tt.expectedTags, tags)
+			// Also verify length to ensure no extras
+			assert.Len(t, tags, len(tt.expectedTags))
 		})
 	}
 }

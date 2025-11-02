@@ -217,11 +217,11 @@ func (c *QBittorrent) GetTorrents(ctx context.Context) (map[string]config.Torren
 		}
 
 		// create torrent
-		var tags []string
-		if t.Tags == "" {
-			tags = []string{}
-		} else {
-			tags = strings.Split(t.Tags, ", ")
+		tags := make(map[string]struct{})
+		if t.Tags != "" {
+			for _, tag := range strings.Split(t.Tags, ", ") {
+				tags[tag] = struct{}{}
+			}
 		}
 		torrent := config.Torrent{
 			Hash:            t.Hash,
@@ -473,7 +473,7 @@ func (c *QBittorrent) ShouldRetag(ctx context.Context, t *config.Torrent) (Retag
 			return RetagInfo{}, fmt.Errorf("check update expression for tag %s on torrent %v: %w", tagRule.Name, t.Hash, err)
 		}
 
-		var containTag = evaluate.StringSliceContains(t.Tags, tagRule.Name, false)
+		_, containTag := t.Tags[tagRule.Name]
 		var tagMode = tagRule.Mode
 
 		if containTag && !match && (tagMode == "remove" || tagMode == "full") {
