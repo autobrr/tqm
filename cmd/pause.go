@@ -10,7 +10,9 @@ import (
 
 	"github.com/autobrr/tqm/pkg/client"
 	"github.com/autobrr/tqm/pkg/config"
+	"github.com/autobrr/tqm/pkg/evaluate"
 	"github.com/autobrr/tqm/pkg/expression"
+	"github.com/autobrr/tqm/pkg/hardlinkfilemap"
 	"github.com/autobrr/tqm/pkg/logger"
 	"github.com/autobrr/tqm/pkg/notification"
 	"github.com/autobrr/tqm/pkg/tracker"
@@ -127,6 +129,31 @@ var pauseCmd = &cobra.Command{
 			log.WithError(err).Fatal("Failed retrieving torrents")
 		} else {
 			log.Infof("Retrieved %d torrents", len(torrents))
+		}
+
+		if evaluate.StringSliceContains(clientFilter.MapHardlinksFor, "pause", true) {
+			// download path mapping
+			clientDownloadPathMapping, err := getClientDownloadPathMapping(clientConfig)
+			if err != nil {
+				log.WithError(err).Fatal("Failed loading client download path mappings")
+			} else if clientDownloadPathMapping != nil {
+				log.Debugf("Loaded %d client download path mappings: %#v", len(clientDownloadPathMapping),
+					clientDownloadPathMapping)
+			}
+
+			// create map of paths associated to underlying file ids
+			start := time.Now()
+			hfm := hardlinkfilemap.New(torrents, clientDownloadPathMapping)
+			log.Infof("Mapped all torrent file paths to %d unique underlying file IDs in %s", hfm.Length(), time.Since(start))
+
+			// add HardlinkedOutsideClient field to torrents
+			for h, t := range torrents {
+				t.HardlinkedOutsideClient = hfm.HardlinkedOutsideClient(t)
+				torrents[h] = t
+			}
+		} else {
+			log.Warnf("Not mapping hardlinks for client %q", clientName)
+			log.Warnf("If your setup involves multiple torrents sharing the same underlying file using hardlinks, or you are using the 'HardlinkedOutsideClient' field in your filters, you should add 'pause' to the 'MapHardlinksFor' field in your filter configuration")
 		}
 
 		var (
