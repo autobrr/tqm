@@ -496,6 +496,25 @@ filters:
       - FreeSpaceSet == true && FreeSpaceGB() < 100 && SeedingDays > 30
 ```
 
+## Processing Priority
+
+You can configure the order in which torrents are processed (and removed) by providing a `priority` expression. This is useful when you want to prioritize removing certain torrents when freeing up space (e.g. "big old torrents first").
+
+The `priority` expression is evaluated for each torrent, and torrents are processed in **descending order** of the resulting score (highest score first).
+
+Example:
+
+```yaml
+filters:
+  default:
+    # Prefer removing big and old torrents first
+    # Priority = Size (GB) + Age (Days)
+    priority: "TotalBytes / 1024 / 1024 / 1024 + AddedDays"
+
+    remove:
+      - FreeSpaceSet == true && FreeSpaceGB() < 100
+```
+
 ## regexp2 Pattern Matching
 
 TQM uses the regexp2 library for advanced pattern matching, providing .NET style regex capabilities. This offers several advantages over Go's standard regex package:
