@@ -18,7 +18,8 @@ func GetDefaultConfigDirectory(app string, filename string) string {
 	// config dir
 	ucd, err := os.UserConfigDir()
 	if err != nil {
-		panic(fmt.Sprintf("userconfigdir: %v", err))
+		// fallback to binary path
+		return bcd
 	}
 
 	acd := filepath.Join(ucd, app)
