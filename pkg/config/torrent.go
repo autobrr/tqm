@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	stdregexp "regexp"
 	"sort"
 	"strings"
 
@@ -16,6 +17,15 @@ import (
 	"github.com/autobrr/tqm/pkg/regex"
 	"github.com/autobrr/tqm/pkg/tracker"
 )
+
+// urlRegex matches HTTP/HTTPS URLs for stripping before pattern matching.
+var urlRegex = stdregexp.MustCompile(`(?i)https?://\S+`)
+
+// stripURLs removes HTTP/HTTPS URLs from a string to prevent false positives
+// when matching tracker status patterns against URLs that contain status keywords.
+func stripURLs(s string) string {
+	return urlRegex.ReplaceAllString(s, "")
+}
 
 type TorrentRegistrationState uint8
 
@@ -178,7 +188,8 @@ func (t *Torrent) IsTrackerDown() bool {
 				return false
 			}
 
-			statusLower := strings.ToLower(status)
+			// Strip URLs to prevent false positives from URLs containing status keywords
+			statusLower := strings.ToLower(stripURLs(status))
 
 			for _, v := range trackerDownStatuses {
 				if strings.Contains(statusLower, v) {
@@ -196,7 +207,8 @@ func (t *Torrent) IsTrackerDown() bool {
 		return false
 	}
 
-	status := strings.ToLower(t.TrackerStatus)
+	// Strip URLs to prevent false positives from URLs containing status keywords
+	status := strings.ToLower(stripURLs(t.TrackerStatus))
 	for _, v := range trackerDownStatuses {
 		if strings.Contains(status, v) {
 			return true
@@ -215,7 +227,8 @@ func (t *Torrent) IsIntermediateStatus() bool {
 				continue
 			}
 
-			statusLower := strings.ToLower(status)
+			// Strip URLs to prevent false positives from URLs containing status keywords
+			statusLower := strings.ToLower(stripURLs(status))
 			for _, v := range trackerIntermediateStatuses {
 				if strings.Contains(statusLower, v) {
 					return true
@@ -230,7 +243,8 @@ func (t *Torrent) IsIntermediateStatus() bool {
 		return false
 	}
 
-	status := strings.ToLower(t.TrackerStatus)
+	// Strip URLs to prevent false positives from URLs containing status keywords
+	status := strings.ToLower(stripURLs(t.TrackerStatus))
 	for _, v := range trackerIntermediateStatuses {
 		if strings.Contains(status, v) {
 			return true

@@ -131,6 +131,50 @@ func TestTorrent_IsTrackerDown(t *testing.T) {
 			},
 			expectedDown: true,
 		},
+		// URL false positive prevention tests
+		{
+			name: "url_containing_down_keyword_not_false_positive",
+			torrent: Torrent{
+				AllTrackerStatuses: map[string]string{
+					"http://tracker1.com/announce": "Torrent trumped, see https://tracker.example.com/torrents/sun-goes-down-2024",
+				},
+			},
+			expectedDown: false,
+		},
+		{
+			name: "url_containing_forbidden_keyword_not_false_positive",
+			torrent: Torrent{
+				AllTrackerStatuses: map[string]string{
+					"http://tracker1.com/announce": "Check https://tracker.example.com/torrents/forbidden-world-1982",
+				},
+			},
+			expectedDown: false,
+		},
+		{
+			name: "url_containing_offline_keyword_not_false_positive",
+			torrent: Torrent{
+				AllTrackerStatuses: map[string]string{
+					"http://tracker1.com/announce": "See https://tracker.example.com/offline-backup/files",
+				},
+			},
+			expectedDown: false,
+		},
+		{
+			name: "real_error_with_url_still_detected",
+			torrent: Torrent{
+				AllTrackerStatuses: map[string]string{
+					"http://tracker1.com/announce": "Connection failed - see https://tracker.example.com/status for more info",
+				},
+			},
+			expectedDown: true,
+		},
+		{
+			name: "single_tracker_url_containing_down_keyword_not_false_positive",
+			torrent: Torrent{
+				TrackerStatus: "Replaced by https://tracker.example.com/torrents/falling-down-1993",
+			},
+			expectedDown: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -196,6 +240,32 @@ func TestTorrent_IsIntermediateStatus(t *testing.T) {
 			name: "nil_AllTrackerStatuses_no_intermediate",
 			torrent: Torrent{
 				TrackerStatus: "Working",
+			},
+			expectedIntermediate: false,
+		},
+		// URL false positive prevention tests
+		{
+			name: "url_containing_postponed_keyword_not_false_positive",
+			torrent: Torrent{
+				AllTrackerStatuses: map[string]string{
+					"http://tracker1.com/announce": "Check https://tracker.example.com/torrents/game-postponed-2024",
+				},
+			},
+			expectedIntermediate: false,
+		},
+		{
+			name: "real_postponed_with_url_still_detected",
+			torrent: Torrent{
+				AllTrackerStatuses: map[string]string{
+					"http://tracker1.com/announce": "torrent has been postponed - see https://tracker.example.com/help",
+				},
+			},
+			expectedIntermediate: true,
+		},
+		{
+			name: "single_tracker_url_containing_postponed_keyword_not_false_positive",
+			torrent: Torrent{
+				TrackerStatus: "See https://tracker.example.com/torrents/postponed-wedding-2024",
 			},
 			expectedIntermediate: false,
 		},
