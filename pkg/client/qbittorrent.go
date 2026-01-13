@@ -399,13 +399,13 @@ func (c *QBittorrent) GetFreeSpace() float64 {
 
 /* Filters */
 
-func (c *QBittorrent) ShouldIgnore(ctx context.Context, t *config.Torrent) (bool, error) {
-	match, err := expression.CheckTorrentSingleMatch(ctx, t, c.exp.Ignores)
+func (c *QBittorrent) ShouldIgnore(ctx context.Context, t *config.Torrent) (bool, string, error) {
+	match, reason, err := expression.CheckTorrentSingleMatchWithReason(ctx, t, c.exp.Ignores)
 	if err != nil {
-		return true, fmt.Errorf("check ignore expression: %v: %w", t.Hash, err)
+		return true, "", fmt.Errorf("check ignore expression: %v: %w", t.Hash, err)
 	}
 
-	return match, nil
+	return match, reason, nil
 }
 
 func (c *QBittorrent) ShouldRemove(ctx context.Context, t *config.Torrent) (bool, error) {
