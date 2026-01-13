@@ -164,11 +164,15 @@ var pauseCmd = &cobra.Command{
 		// iterate through torrents
 		for _, t := range torrents {
 			// check if torrent should be ignored
-			if ignored, err := c.ShouldIgnore(ctx, &t); err != nil {
+			if ignored, reason, err := c.ShouldIgnore(ctx, &t); err != nil {
 				log.WithError(err).Errorf("Failed checking ignore filters for torrent: %q", t.Name)
 				continue
 			} else if ignored {
-				log.Debugf("Ignoring torrent: %q", t.Name)
+				if reason != "" {
+					log.Debugf("Ignoring torrent: %q (reason: %s)", t.Name, reason)
+				} else {
+					log.Debugf("Ignoring torrent: %q", t.Name)
+				}
 				continue
 			}
 

@@ -425,7 +425,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	candidateReasons := make(map[string]string)
 	for h, t := range torrents {
 		// should we ignore this torrent?
-		ignore, err := c.ShouldIgnore(ctx, &t)
+		ignore, reason, err := c.ShouldIgnore(ctx, &t)
 		if err != nil {
 			// error while determining whether to ignore torrent
 			log.WithError(err).Errorf("Failed determining whether to ignore: %+v", t)
@@ -433,7 +433,11 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 			continue
 		} else if ignore && !(config.Config.BypassIgnoreIfUnregistered && t.IsUnregistered(ctx)) {
 			// torrent met ignore filter
-			log.Tracef("Ignoring torrent %s: %s", h, t.Name)
+			if reason != "" {
+				log.Tracef("Ignoring torrent %s: %s (reason: %s)", h, t.Name, reason)
+			} else {
+				log.Tracef("Ignoring torrent %s: %s", h, t.Name)
+			}
 			delete(torrents, h)
 			ignoredTorrents++
 			continue

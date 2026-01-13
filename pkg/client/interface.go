@@ -20,7 +20,7 @@ type Interface interface {
 
 	SetUploadLimit(ctx context.Context, hash string, limit int64) error
 
-	ShouldIgnore(ctx context.Context, t *config.Torrent) (bool, error)
+	ShouldIgnore(ctx context.Context, t *config.Torrent) (bool, string, error)
 	ShouldRemove(ctx context.Context, t *config.Torrent) (bool, error)
 	ShouldRemoveWithReason(ctx context.Context, t *config.Torrent) (bool, string, error)
 	CheckTorrentPause(ctx context.Context, t *config.Torrent) (bool, error)
