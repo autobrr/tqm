@@ -333,6 +333,8 @@ filters:
       - HardlinkedOutsideClient == true && !isUnregistered() # this makes sure we never remove torrents that has a hardlink (unless they are unregistered)
 ```
 
+:warning: To prevent potential data corruption or incomplete moves when TMM is used, relabeling of cross-seeded torrents only happens when ALL torrents of the same group (share the same underlying data) match the criteria (e.g. `SeedingDays >= 7.0`)
+
 **Recommendation:**
 
 - Include a command name in `MapHardlinksFor` only if your filter rules for that specific command use the `HardlinkedOutsideClient` field.
@@ -448,6 +450,8 @@ filters:
 `tqm relabel qbt --dry-run`
 
 `tqm relabel qbt`
+
+`tqm relabel qbt -v --experimental-relabel` - Enable experimental relabeling for cross-seeded torrents, using hardlinks (only qbit for now)
 
 3. Retag - Retrieve torrent client queue and retag torrents matching its configured filters (only qbittorrent supported as of now)
 

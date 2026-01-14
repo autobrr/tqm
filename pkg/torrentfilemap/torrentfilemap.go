@@ -86,6 +86,28 @@ func (t *TorrentFileMap) IsUnique(torrent config.Torrent) bool {
 	return true
 }
 
+func (t *TorrentFileMap) GetTorrentsSharingFiles(torrent config.Torrent, allTorrents map[string]config.Torrent) ([]config.Torrent, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	groupHashes := make(map[string]bool)
+	groupHashes[torrent.Hash] = true
+
+	for _, f := range torrent.Files {
+		if torrents, exists := t.torrentFileMap[f]; exists {
+			for hash := range torrents {
+				groupHashes[hash] = true
+			}
+		}
+	}
+
+	var group []config.Torrent
+	for hash := range groupHashes {
+		group = append(group, allTorrents[hash])
+	}
+	return group, nil
+}
+
 func (t *TorrentFileMap) NoInstances(torrent config.Torrent) bool {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
