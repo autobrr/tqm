@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -423,6 +424,15 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 	hardlinkedCandidates := make(map[string]config.Torrent)
 	fileOverlapCandidates := make(map[string]config.Torrent)
 	candidateReasons := make(map[string]string)
+
+	type removalCandidate struct {
+		Hash     string
+		Torrent  config.Torrent
+		Priority float64
+	}
+
+	candidates := make([]removalCandidate, 0, len(torrents))
+
 	for h, t := range torrents {
 		// should we ignore this torrent?
 		ignore, reason, err := c.ShouldIgnore(ctx, &t)
@@ -442,6 +452,35 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 			ignoredTorrents++
 			continue
 		}
+
+		// calculate priority
+		priority, err := c.EvaluatePriority(ctx, &t)
+		if err != nil {
+			log.WithError(err).Errorf("Failed evaluating priority score: %+v", t)
+			continue
+		}
+
+		candidates = append(candidates, removalCandidate{
+			Hash:     h,
+			Torrent:  t,
+			Priority: priority,
+		})
+	}
+
+	// sort candidates by priority
+	slices.SortFunc(candidates, func(a, b removalCandidate) int {
+		if a.Priority > b.Priority {
+			return -1
+		}
+		if a.Priority < b.Priority {
+			return 1
+		}
+		return 0
+	})
+
+	for _, cand := range candidates {
+		h := cand.Hash
+		t := cand.Torrent
 
 		// should we remove this torrent?
 		remove, reason, err := c.ShouldRemoveWithReason(ctx, &t)

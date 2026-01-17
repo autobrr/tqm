@@ -452,6 +452,19 @@ func (c *QBittorrent) CheckTorrentPause(ctx context.Context, t *config.Torrent) 
 	return match, nil
 }
 
+func (c *QBittorrent) EvaluatePriority(ctx context.Context, t *config.Torrent) (float64, error) {
+	if c.exp.Priority == nil {
+		return 0, nil
+	}
+
+	result, err := expression.EvaluateFloat64Expression(ctx, t, c.exp.Priority)
+	if err != nil {
+		return 0, fmt.Errorf("evaluate priority expression: %v: %w", t.Hash, err)
+	}
+
+	return result, nil
+}
+
 func (c *QBittorrent) PauseTorrents(ctx context.Context, hashes []string) error {
 	if err := c.client.PauseCtx(ctx, hashes); err != nil {
 		return fmt.Errorf("pause torrents: %v: %w", hashes, err)
