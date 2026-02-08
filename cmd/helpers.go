@@ -340,17 +340,29 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		} else if isNotUniqueUnregistered && !isHardlinked {
 			logMsg = "removing unregistered non-unique torrent (file overlap): %q - %s"
 		} else {
-			if !t.FreeSpaceSet {
-				logMsg = "removing: %q - %s"
-			} else {
-				logMsg = "removing: %q - %s - %.2f GB"
-			}
+			logMsg = "removing: %q - %s"
 		}
 
-		if !t.FreeSpaceSet {
-			log.Infof(logMsg, t.Name, humanize.IBytes(uint64(t.DownloadedBytes)))
+		// If complete, use total size; otherwise use downloaded bytes (fallback to total if needed).
+		sizeBytes := t.DownloadedBytes
+		sizeEstimated := true
+		if t.Downloaded && t.TotalBytes > 0 {
+			sizeBytes = t.TotalBytes
+			sizeEstimated = false
+		} else if sizeBytes == 0 && t.TotalBytes > 0 {
+			sizeBytes = t.TotalBytes
+			sizeEstimated = false
+		}
+		sizeStr := humanize.IBytes(uint64(sizeBytes))
+		if sizeEstimated {
+			sizeStr += " (ESTIMATE)"
+		}
+
+		if t.FreeSpaceSet {
+			logMsg += " - %.2f GB"
+			log.Infof(logMsg, t.Name, sizeStr, t.FreeSpaceGB())
 		} else {
-			log.Infof(logMsg, t.Name, humanize.IBytes(uint64(t.DownloadedBytes)), t.FreeSpaceGB())
+			log.Infof(logMsg, t.Name, sizeStr)
 		}
 
 		log.Debugf("Removal reason: %s", reason)
@@ -393,8 +405,8 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 
 				// increase free space if we removed data
 				if localDeleteData && t.FreeSpaceSet {
-					log.Tracef("Increasing free space by: %s", humanize.IBytes(uint64(t.DownloadedBytes)))
-					c.AddFreeSpace(t.DownloadedBytes)
+					log.Tracef("Increasing free space by: %s", humanize.IBytes(uint64(sizeBytes)))
+					c.AddFreeSpace(sizeBytes)
 					log.Tracef("New free space: %.2f GB", c.GetFreeSpace())
 				}
 
@@ -410,7 +422,7 @@ func removeEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.Int
 		}))
 
 		// increased hard removed counters
-		removedTorrentBytes += t.DownloadedBytes
+		removedTorrentBytes += sizeBytes
 		hardRemoveTorrents++
 
 		// remove the torrent from the torrent maps
