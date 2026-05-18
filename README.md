@@ -37,6 +37,10 @@ clients:
     url: https://qbittorrent.domain.com/
     user: user
     password: password
+    # qBittorrent 5.2.0+ supports API key authentication as an alternative
+    # to user/password. Generate one in qBittorrent: Preferences > WebUI > API Key.
+    # When set, user/password are not used for the WebAPI login.
+    # api_key: qbt_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
     # NEW: If this option is set to true, AutoTmm aka Auto Torrent Managment Mode,
     # will be enabled for torrents after a relabel.
     # This ensures the torrent is also moved in the filesystem to the new category path, and not only changes category in qbit

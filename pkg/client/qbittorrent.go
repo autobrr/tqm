@@ -25,6 +25,7 @@ type QBittorrent struct {
 	Url                       *string `validate:"required"`
 	User                      string
 	Password                  string
+	APIKey                    string `koanf:"api_key"`
 	EnableAutoTmmAfterRelabel bool
 	CreateTagsUpfront         bool `koanf:"create_tags_upfront"`
 
@@ -72,6 +73,7 @@ func NewQBittorrent(name string, exp *expression.Expressions) (TagInterface, err
 		Host:          *tc.Url,
 		Username:      tc.User,
 		Password:      tc.Password,
+		APIKey:        tc.APIKey,
 		TLSSkipVerify: true,
 		BasicUser:     tc.User,
 		BasicPass:     tc.Password,
