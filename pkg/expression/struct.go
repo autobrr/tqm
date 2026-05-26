@@ -14,11 +14,12 @@ type CompiledExpression struct {
 }
 
 type Expressions struct {
-	Ignores []CompiledExpression
-	Removes []CompiledExpression
-	Pauses  []CompiledExpression
-	Labels  []*LabelExpression
-	Tags    []*TagExpression
+	Ignores  []CompiledExpression
+	Removes  []CompiledExpression
+	Pauses   []CompiledExpression
+	Priority *CompiledExpression
+	Labels   []*LabelExpression
+	Tags     []*TagExpression
 }
 
 type LabelExpression struct {

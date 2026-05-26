@@ -124,6 +124,19 @@ func Compile(filter *config.FilterConfiguration) (*Expressions, error) {
 		})
 	}
 
+	// compile priority
+	if filter.Priority != nil && *filter.Priority != "" {
+		program, err := expr.Compile(*filter.Priority, expr.Env(exprEnv))
+		if err != nil {
+			return nil, fmt.Errorf("compile priority expression: %q: %w", *filter.Priority, err)
+		}
+
+		exp.Priority = &CompiledExpression{
+			Program: program,
+			Text:    *filter.Priority,
+		}
+	}
+
 	// compile labels
 	for _, labelExpr := range filter.Label {
 		le := &LabelExpression{Name: labelExpr.Name}

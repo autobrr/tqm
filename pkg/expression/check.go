@@ -67,3 +67,25 @@ func CheckTorrentAllMatchWithReason(ctx context.Context, t *config.Torrent, expr
 
 	return true, nil, nil
 }
+
+func EvaluateFloat64Expression(ctx context.Context, t *config.Torrent, expression *CompiledExpression) (float64, error) {
+	env := &evalContext{Torrent: t, ctx: ctx}
+
+	result, err := expr.Run(expression.Program, env)
+	if err != nil {
+		return 0, fmt.Errorf("evaluate expression: %w", err)
+	}
+
+	switch v := result.(type) {
+	case float64:
+		return v, nil
+	case float32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case int:
+		return float64(v), nil
+	default:
+		return 0, fmt.Errorf("expression result is not a number: %T", result)
+	}
+}

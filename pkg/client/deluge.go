@@ -358,6 +358,19 @@ func (c *Deluge) CheckTorrentPause(ctx context.Context, t *config.Torrent) (bool
 	return match, nil
 }
 
+func (c *Deluge) EvaluatePriority(ctx context.Context, t *config.Torrent) (float64, error) {
+	if c.exp.Priority == nil {
+		return 0, nil
+	}
+
+	result, err := expression.EvaluateFloat64Expression(ctx, t, c.exp.Priority)
+	if err != nil {
+		return 0, fmt.Errorf("evaluate priority expression: %v: %w", t.Hash, err)
+	}
+
+	return result, nil
+}
+
 func (c *Deluge) PauseTorrents(ctx context.Context, hashes []string) error {
 	var err error
 	if c.V2 {

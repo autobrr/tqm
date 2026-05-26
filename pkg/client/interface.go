@@ -24,6 +24,7 @@ type Interface interface {
 	ShouldRemove(ctx context.Context, t *config.Torrent) (bool, error)
 	ShouldRemoveWithReason(ctx context.Context, t *config.Torrent) (bool, string, error)
 	CheckTorrentPause(ctx context.Context, t *config.Torrent) (bool, error)
+	EvaluatePriority(ctx context.Context, t *config.Torrent) (float64, error)
 	ShouldRelabel(ctx context.Context, t *config.Torrent) (string, bool, error)
 
 	PauseTorrents(ctx context.Context, hashes []string) error
