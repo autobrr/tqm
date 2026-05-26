@@ -213,11 +213,15 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 		relabeledTorrents    int
 		errorRelabelTorrents int
 
-		fields []notification.Field
+		fields          []notification.Field
+		processedHashes = make(map[string]bool)
 	)
 
 	// iterate torrents
 	for h, t := range torrents {
+		if processedHashes[h] {
+			continue
+		}
 		// should we relabel torrent?
 		label, relabel, err := c.ShouldRelabel(ctx, &t)
 		if err != nil {
@@ -236,57 +240,56 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 			continue
 		}
 
-		hardlink := false
 		if !tfm.IsUnique(t) {
 			if !flagExperimentalRelabelForCrossSeeds {
-				// torrent file is not unique, files are contained within another torrent
-				// so we cannot safely change the label in-case of auto move
 				nonUniqueTorrents++
 				log.Warnf("Skipping non unique torrent | Name: %s / Label: %s / Tags: %s / Tracker: %s", t.Name, t.Label, strings.Join(t.TagsSlice(), ", "), t.TrackerName)
+				processedHashes[h] = true
 				continue
 			}
 
-			hardlink = true
-		}
-
-		// relabel
-		if !t.APIDividerPrinted {
-			log.Info("-----")
-		}
-
-		if hardlink {
-			log.Infof("Relabeling: %q - %s | with hardlinks to: %q", t.Name, label, c.LabelPathMap()[label])
-		} else {
-			log.Infof("Relabeling: %q - %s", t.Name, label)
-		}
-		log.Infof("Ratio: %.3f / Seed days: %.3f / Seeds: %d / Label: %s / Tags: %s / Tracker: %s / "+
-			"Tracker Status: %q", t.Ratio, t.SeedingDays, t.Seeds, t.Label, strings.Join(t.TagsSlice(), ", "), t.TrackerName, t.TrackerStatus)
-
-		if !flagDryRun {
-			if err := c.SetTorrentLabel(ctx, t.Hash, label, hardlink); err != nil {
-				log.WithError(err).Fatalf("Failed relabeling torrent: %+v", t)
-				errorRelabelTorrents++
+			group, err := tfm.GetTorrentsSharingFiles(t, torrents)
+			if err != nil {
+				log.WithError(err).Errorf("Could not get torrent group for %s", t.Name)
+				processedHashes[h] = true
 				continue
 			}
 
-			log.Info("Relabeled")
-			time.Sleep(5 * time.Second)
-		} else {
-			log.Warn("Dry-run enabled, skipping relabel...")
-		}
+			canRelabelGroup := true
+			for _, groupTorrent := range group {
+				groupLabel, groupRelabel, err := c.ShouldRelabel(ctx, &groupTorrent)
+				if err != nil || !groupRelabel || groupLabel != label {
+					canRelabelGroup = false
+					log.Warnf("Part of cross-seed group for %q does not meet relabel criteria: %q (target label: %s, group target: %s)", t.Name, groupTorrent.Name, label, groupLabel)
+					break
+				}
+			}
 
-		fields = append(fields, noti.BuildField(notification.ActionRelabel, notification.BuildOptions{
-			Torrent:  t,
-			NewLabel: label,
-		}))
-		relabeledTorrents++
+			if canRelabelGroup {
+				log.Infof("All %d torrents in cross-seed group for %q meet criteria for relabeling to %q. Proceeding.", len(group), t.Name, label)
+				for _, groupTorrent := range group {
+					relabelTorrent(ctx, log, c, groupTorrent, label, true, noti, &relabeledTorrents, &errorRelabelTorrents, &fields)
+					processedHashes[groupTorrent.Hash] = true
+				}
+			} else {
+				log.Warnf("Skipping relabel for cross-seed group of %q as not all torrents meet criteria.", t.Name)
+				for _, groupTorrent := range group {
+					processedHashes[groupTorrent.Hash] = true
+					nonUniqueTorrents++
+				}
+			}
+
+		} else {
+			relabelTorrent(ctx, log, c, t, label, false, noti, &relabeledTorrents, &errorRelabelTorrents, &fields)
+			processedHashes[h] = true
+		}
 	}
 
 	// show result
 	log.Info("-----")
 	log.Infof("Ignored torrents: %d", ignoredTorrents)
 	if nonUniqueTorrents > 0 {
-		log.Infof("Non-unique torrents: %d", nonUniqueTorrents)
+		log.Infof("Non-unique torrents skipped: %d", nonUniqueTorrents)
 	}
 	log.Infof("Relabeled torrents: %d, %d failures", relabeledTorrents, errorRelabelTorrents)
 
@@ -308,6 +311,31 @@ func relabelEligibleTorrents(ctx context.Context, log *logrus.Entry, c client.In
 	}
 
 	return nil
+}
+
+func relabelTorrent(ctx context.Context, log *logrus.Entry, c client.Interface, t config.Torrent, label string, hardlink bool, noti notification.Sender, relabeledTorrents *int, errorRelabelTorrents *int, fields *[]notification.Field) {
+	if !t.APIDividerPrinted {
+		log.Info("-----")
+	}
+
+	if !flagDryRun {
+		if err := c.SetTorrentLabel(ctx, t.Hash, label, hardlink); err != nil {
+			log.WithError(err).Errorf("Failed relabeling torrent: %+v", t)
+			*errorRelabelTorrents++
+			return
+		}
+
+		log.Info("Relabeled")
+		time.Sleep(1 * time.Second)
+	} else {
+		log.Warn("Dry-run enabled, skipping relabel...")
+	}
+
+	*fields = append(*fields, noti.BuildField(notification.ActionRelabel, notification.BuildOptions{
+		Torrent:  t,
+		NewLabel: label,
+	}))
+	*relabeledTorrents++
 }
 
 // remove torrents that meet remove filters
