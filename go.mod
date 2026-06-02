@@ -3,7 +3,7 @@ module github.com/autobrr/tqm
 go 1.25.0
 
 require (
-	github.com/autobrr/autobrr v1.79.0
+	github.com/autobrr/autobrr v1.80.0
 	github.com/autobrr/go-deluge v1.4.0
 	github.com/autobrr/go-qbittorrent v1.16.0
 	github.com/bobesa/go-domain-util v0.0.0-20190911083921-4033b5f7dd89
