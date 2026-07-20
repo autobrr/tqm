@@ -7,6 +7,7 @@ type FilterConfiguration struct {
 	Ignore          []string
 	Remove          []string
 	Pause           []string
+	Priority        *string
 	DeleteData      *bool
 	Orphan          struct {
 		GracePeriod time.Duration `yaml:"grace_period" koanf:"grace_period"`
