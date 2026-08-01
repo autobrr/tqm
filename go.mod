@@ -1,14 +1,14 @@
 module github.com/autobrr/tqm
 
-go 1.25.0
+go 1.26.0
 
 require (
-	github.com/autobrr/autobrr v1.79.0
+	github.com/autobrr/autobrr v1.83.0
 	github.com/autobrr/go-deluge v1.4.0
-	github.com/autobrr/go-qbittorrent v1.16.0
+	github.com/autobrr/go-qbittorrent v1.17.0
 	github.com/bobesa/go-domain-util v0.0.0-20190911083921-4033b5f7dd89
 	github.com/charlievieth/fastwalk v1.0.14
-	github.com/creativeprojects/go-selfupdate v1.5.2
+	github.com/creativeprojects/go-selfupdate v1.6.0
 	github.com/dlclark/regexp2 v1.12.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/expr-lang/expr v1.17.8
@@ -24,21 +24,20 @@ require (
 )
 
 require (
-	code.gitea.io/sdk/gitea v0.22.1 // indirect
-	github.com/42wim/httpsig v1.2.3 // indirect
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
+	code.gitea.io/sdk/gitea v0.23.2 // indirect
+	github.com/42wim/httpsig v1.2.4 // indirect
+	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/go-fed/httpsig v1.1.0 // indirect
-	github.com/google/go-github/v74 v74.0.0 // indirect
+	github.com/google/go-github/v86 v86.0.0 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/rogpeppe/go-internal v1.11.0 // indirect
-	gitlab.com/gitlab-org/api/client-go v1.9.1 // indirect
+	gitlab.com/gitlab-org/api/client-go v1.46.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/exp v0.0.0-20260508232706-74f9aab9d74a // indirect
-	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 )
 
@@ -48,7 +47,7 @@ require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/gdm85/go-rencode v0.1.8 // indirect
-	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -63,11 +62,11 @@ require (
 	github.com/scylladb/go-set v1.0.3-0.20200225121959-cc7b2070d91e
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
-	golang.org/x/crypto v0.51.0 // indirect
-	golang.org/x/net v0.54.0 // indirect
+	golang.org/x/crypto v0.53.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
-	golang.org/x/term v0.43.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/term v0.44.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
